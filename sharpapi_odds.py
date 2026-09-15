@@ -1,16 +1,16 @@
 """
 SharpAPI odds fetcher — DraftKings + FanDuel FULL-GAME spread & total (free tier).
 
-Free tier returns 200 rows/page and lists DraftKings before FanDuel, so we filter the
-query to spread+total only and page through with offset to reach both books and the
-full-game totals. Keeps only full-game main lines (segment = None); skips half/quarter,
-team totals, moneyline, props, and alternate lines. Teams matched by abbreviation.
+The free feed returns 200 rows/page across many pages (DK listed before FD), so we
+walk EVERY page via the response's next_cursor until has_more is false, filtering the
+query to spread+total. Keeps only full-game main lines (segment = None); skips
+half/quarter, team totals, alternates. Teams matched by abbreviation. A short pause
+between pages respects the 12-requests/min free-tier limit.
 
 Returns {(away, home): {'dk': {'s':spread,'t':total}, 'fd': {'s':spread,'t':total}}}
-'s' internal convention: POSITIVE = home favored.  Fail-safe: errors return {}.
+'s' internal convention: POSITIVE = home favored.  Fail-safe: errors return what's collected.
 """
-import os, json, urllib.request
-from collections import Counter
+import os, json, time, urllib.request, urllib.parse
 
 OURTEAMS = {'ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU',
  'IND','JAX','KC','LV','LAC','LA','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF',
@@ -37,17 +37,17 @@ def fetch_odds(api_key):
     if not api_key: return {}
     base = ('https://api.sharpapi.io/api/v1/odds?league=nfl'
             '&sportsbook=draftkings,fanduel&market=spread,total&limit=200')
-    games = {}; scanned = 0; pages = 0
+    games = {}; scanned = 0; url = base
     try:
-        for off in (0, 200, 400):
-            req = urllib.request.Request(base + f'&offset={off}',
-                                         headers={'X-API-Key': api_key, 'Accept': 'application/json'})
-            with urllib.request.urlopen(req, timeout=25) as r:
-                payload = json.load(r)
+        for page in range(20):                       # hard cap so it can't loop forever
+            req = urllib.request.Request(url, headers={'X-API-Key': api_key, 'Accept': 'application/json'})
+            try:
+                with urllib.request.urlopen(req, timeout=25) as r:
+                    payload = json.load(r)
+            except Exception as e:
+                print('SharpAPI page error (stopping, using what we have):', e); break
             rows = payload.get('data', payload if isinstance(payload, list) else [])
-            if off == 0:
-                print('DIAG pagination:', payload.get('pagination'))
-            scanned += len(rows); pages += 1
+            scanned += len(rows)
             for row in rows:
                 bk = {'draftkings': 'dk', 'fanduel': 'fd'}.get(str(row.get('sportsbook', '')).lower())
                 if not bk: continue
@@ -70,12 +70,18 @@ def fetch_odds(api_key):
                     elif side == 'away': slot['s'] = line
                 elif is_total:
                     slot['t'] = line
-            if len(rows) < 200: break
+            pg = payload.get('pagination') or {}
+            cur = pg.get('next_cursor')
+            if pg.get('has_more') and cur:
+                url = base + '&cursor=' + urllib.parse.quote(str(cur))
+                time.sleep(5)                        # stay under 12 requests/min
+            else:
+                break
         clean = {}
         for k, books in games.items():
             bb = {b: v for b, v in books.items() if 's' in v and 't' in v}
             if bb: clean[k] = bb
-        print(f'SharpAPI: scanned {scanned} rows over {pages} page(s), matched {len(clean)} games '
+        print(f'SharpAPI: scanned {scanned} rows, matched {len(clean)} games '
               f'(DK: {sum(1 for v in clean.values() if "dk" in v)}, FD: {sum(1 for v in clean.values() if "fd" in v)})')
         return clean
     except Exception as e:
