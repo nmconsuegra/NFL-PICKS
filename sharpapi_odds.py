@@ -38,6 +38,7 @@ def fetch_odds(api_key):
         with urllib.request.urlopen(req, timeout=25) as r:
             payload = json.load(r)
         rows = payload.get('data', payload if isinstance(payload, list) else [])
+      (keep it lined up under 'rows'): print('SHARP RAW:', [r for r in rows if 'bills' in str(r.get('away_team','')).lower() or 'bills' in str(r.get('home_team','')).lower()][:6])
         BOOK = {'draftkings': 'dk', 'fanduel': 'fd'}
         games = {}
         for row in rows:
