@@ -228,7 +228,7 @@ HTML = r'''<!DOCTYPE html>
   <div class="grid" id="view-games">
     <div>
       <div class="section-label">This week's slate <span class="count" id="gcount"></span></div>
-      <div class="legend"><span><span class="dot g"></span>model agrees with the line</span><span><span class="dot r"></span>model differs — click to compare & enter DraftKings</span></div>
+      <div class="legend"><span><span class="dot g"></span>model agrees with the line</span><span><span class="dot r"></span>model differs — tap for the full breakdown</span></div>
       <div class="board" id="board"></div>
       <div class="builder">
         <div class="section-label">Build any matchup</div>
@@ -304,7 +304,7 @@ function fillLean(away,home,p,s,t,label){
   const lz=document.getElementById('leanzone'),wt=document.getElementById('whytext');
   const f=p.margin>0?home:away;
   let why=`Our ratings have ${h.city} ${h.name} at #${h.ovr_rank} overall (${tier(h.off_rank)} offense, ${tier(h.def_rank)} defense) and ${a.city} ${a.name} at #${a.ovr_rank} (${tier(a.off_rank)} offense, ${tier(a.def_rank)} defense). After ~${C.B0.toFixed(1)} points of home field, the model projects ${T[f].name} by ${Math.abs(p.margin).toFixed(1)}.`;
-  if(s==null){lz.innerHTML=`<div class="lean-note">No line to compare yet — enter DraftKings' numbers above.</div>`;wt.textContent=why;return;}
+  if(s==null){lz.innerHTML=`<div class="lean-note">No book line posted for this game yet.</div>`;wt.textContent=why;return;}
   const edge=p.margin-s,side=edge>0?home:away,tside=p.total>t?'Over':'Under';
   const agree=((p.margin>0)===(s>0))&&Math.abs(p.margin-s)<2;
   lz.innerHTML=`<div class="leans">
@@ -343,11 +343,10 @@ function render(away,home,mktSpread,mktTotal){
   const gobj=DATA.games.find(x=>x.away===away&&x.home===home);
   const qa=(gobj&&gobj.qbadj)||{};
   const p=project(away,home,qa.home||0,qa.away||0);
-  const dkV=getBk('dk',away,home)||(gobj?gobj.dk:null), fdV=getBk('fd',away,home)||(gobj?gobj.fd:null);
-  const defS=dkV?(-dkV.s):(mktSpread!=null?(-mktSpread):'');
-  const defT=dkV?dkV.t:(mktTotal!=null?mktTotal:'');
-  const defSF=fdV?(-fdV.s):(mktSpread!=null?(-mktSpread):'');
-  const defTF=fdV?fdV.t:(mktTotal!=null?mktTotal:'');
+  const dkV=(gobj?gobj.dk:null), fdV=(gobj?gobj.fd:null);
+  const bookBox=(label,v)=>v
+    ? `<div class="lineval" style="font-size:24px">${lineStr(v.s,home,away)}</div><div class="linetotal">Total ${v.t.toFixed(1)}</div>`
+    : `<div class="lineval" style="color:var(--muted);font-size:16px">—</div><div class="linetotal">not posted yet</div>`;
   document.getElementById('detail').innerHTML=`
     <div class="d-head"><div class="d-title"><span class="lnk" onclick="goTeam('${away}')">${a.city} ${a.name}</span> <span style="color:var(--muted);font-weight:600">at</span> <span class="lnk" onclick="goTeam('${home}')">${h.city} ${h.name}</span></div><div class="d-sub">${DATA.as_of}</div></div>
     <div class="lines">
@@ -355,22 +354,8 @@ function render(away,home,mktSpread,mktTotal){
       <div class="linebox"><div class="linelabel">VEGAS</div>
         ${mktSpread!=null?`<div class="lineval" style="font-size:24px">${lineStr(mktSpread,home,away)}</div><div class="linetotal">Total ${mktTotal.toFixed(1)}</div>`:`<div class="lineval" style="color:var(--muted);font-size:16px">—</div><div class="linetotal">not on this week's slate</div>`}
       </div>
-      <div class="linebox"><div class="linelabel">DRAFTKINGS</div>
-        <div class="dk-inputs">
-          <label>${h.name} line <span class="hint">− if favored</span></label>
-          <input class="lineinput" id="dk-spread" type="number" step="0.5" placeholder="e.g. -2.5" value="${defS}">
-          <input class="lineinput" id="dk-total" type="number" step="0.5" placeholder="total 43.5" value="${defT}">
-        </div>
-        <div class="dk-hint">Type DraftKings' number — saved automatically.</div>
-      </div>
-      <div class="linebox"><div class="linelabel">FANDUEL</div>
-        <div class="dk-inputs">
-          <label>${h.name} line <span class="hint">− if favored</span></label>
-          <input class="lineinput" id="fd-spread" type="number" step="0.5" placeholder="e.g. -2.5" value="${defSF}">
-          <input class="lineinput" id="fd-total" type="number" step="0.5" placeholder="total 43.5" value="${defTF}">
-        </div>
-        <div class="dk-hint">Type FanDuel's number — saved automatically.</div>
-      </div>
+      <div class="linebox"><div class="linelabel">DRAFTKINGS</div>${bookBox('DK',dkV)}</div>
+      <div class="linebox"><div class="linelabel">FANDUEL</div>${bookBox('FD',fdV)}</div>
     </div>
     <div id="leanzone"></div>
     ${qbNote(gobj)}
@@ -378,20 +363,11 @@ function render(away,home,mktSpread,mktTotal){
     <div class="teams2">${teamCard(away,'AWAY')}${teamCard(home,'HOME')}</div>
     <div class="inj2"><div class="col"><h3 style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px">${away} injuries</h3>${injuryHTML(away,6)}</div><div class="col"><h3 style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px">${home} injuries</h3>${injuryHTML(home,6)}</div></div>
     <div class="why"><h3>Why — say this to a client</h3><p id="whytext"></p></div>`;
-  const sp=document.getElementById('dk-spread'),tt=document.getElementById('dk-total');
-  const fsp=document.getElementById('fd-spread'),ftt=document.getElementById('fd-total');
-  const upd=()=>{
-    const dkH=parseFloat(sp.value),ds=isNaN(dkH)?NaN:-dkH,dt=parseFloat(tt.value);
-    if(!isNaN(ds)&&!isNaN(dt))setBk('dk',away,home,{s:ds,t:dt});
-    const fdH=parseFloat(fsp.value),fs=isNaN(fdH)?NaN:-fdH,ft=parseFloat(ftt.value);
-    if(!isNaN(fs)&&!isNaN(ft))setBk('fd',away,home,{s:fs,t:ft});
-    if(!isNaN(ds)&&!isNaN(dt)) fillLean(away,home,p,ds,dt,'DraftKings');
-    else if(!isNaN(fs)&&!isNaN(ft)) fillLean(away,home,p,fs,ft,'FanDuel');
-    else if(mktSpread!=null) fillLean(away,home,p,mktSpread,mktTotal,'Vegas');
-    else fillLean(away,home,p,null,null,'');
-    buildBoard();};
-  [sp,tt,fsp,ftt].forEach(el=>el.addEventListener('input',upd));
-  upd();
+  // lean vs the best available book (DraftKings first), else Vegas
+  if(dkV) fillLean(away,home,p,dkV.s,dkV.t,'DraftKings');
+  else if(fdV) fillLean(away,home,p,fdV.s,fdV.t,'FanDuel');
+  else if(mktSpread!=null) fillLean(away,home,p,mktSpread,mktTotal,'Vegas');
+  else fillLean(away,home,p,null,null,'');
 }
 
 function americanFromProb(pr){
@@ -503,14 +479,14 @@ function buildBoard(){
     const vsA=((p.margin>0)===(g.spread>0))&&Math.abs(p.margin-g.spread)<2;
     const vtA=Math.abs(p.total-g.total)<2;
     let lines=`<div class="mktline"><span class="mlbl">VEGAS</span><span class="${vsA?'num-agree':'num-disagree'}">${T[vFav].abbr} -${Math.abs(g.spread).toFixed(1)}</span><span class="mdot">·</span><span class="${vtA?'num-agree':'num-disagree'}">o/u ${g.total.toFixed(1)}</span></div>`;
-    const savedDK=getBk('dk',g.away,g.home)||g.dk;
+    const savedDK=g.dk;
     if(savedDK){
       const dFav=savedDK.s>0?g.home:g.away;
       const dsA=((p.margin>0)===(savedDK.s>0))&&Math.abs(p.margin-savedDK.s)<2;
       const dtA=Math.abs(p.total-savedDK.t)<2;
       lines+=`<div class="mktline"><span class="mlbl" style="color:var(--amber)">DK</span><span class="${dsA?'num-agree':'num-disagree'}">${T[dFav].abbr} -${Math.abs(savedDK.s).toFixed(1)}</span><span class="mdot">·</span><span class="${dtA?'num-agree':'num-disagree'}">o/u ${savedDK.t.toFixed(1)}</span></div>`;
     }
-    const savedFD=getBk('fd',g.away,g.home)||g.fd;
+    const savedFD=g.fd;
     if(savedFD){
       const fFav=savedFD.s>0?g.home:g.away;
       const fsA=((p.margin>0)===(savedFD.s>0))&&Math.abs(p.margin-savedFD.s)<2;
