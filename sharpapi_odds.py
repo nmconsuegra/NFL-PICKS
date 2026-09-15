@@ -1,33 +1,40 @@
 """
-SharpAPI odds fetcher — DraftKings + FanDuel NFL spreads & totals (free tier).
+SharpAPI odds fetcher — DraftKings + FanDuel FULL-GAME spread & total (free tier).
 
-Matches SharpAPI's documented v1 schema:
-  GET https://api.sharpapi.io/api/v1/odds?league=NFL&market=spread,total
-  Header: X-API-Key: <your key, starts with sk_live_>
-  Response: { "data": [ {row}, ... ], "meta": {...} }
-  Each row flat: sportsbook, market_type, home_team, away_team, selection, line
+GET https://api.sharpapi.io/api/v1/odds?league=NFL&market=spread,total
+Header: X-API-Key: <your key, starts with sk_live_>
+Response: { "data": [ {row}, ... ] } — one flat row per book/market/selection.
+
+Only FULL-GAME main lines are used (1st-half / 1st-quarter / alternate lines are
+skipped). Teams are matched by the row's reliable abbreviation field.
 
 Returns: {(away_abbr, home_abbr): {'dk': {'s':spread,'t':total},
                                    'fd': {'s':spread,'t':total}}}
 where 's' is internal convention: POSITIVE = home team favored.
-Fail-safe: any error returns {} and the site falls back to manual entry.
+Fail-safe: any error returns {} and the site shows "not posted yet".
 """
 import os, json, urllib.request
 
-NICK2ABBR = {
- 'cardinals':'ARI','falcons':'ATL','ravens':'BAL','bills':'BUF','panthers':'CAR',
- 'bears':'CHI','bengals':'CIN','browns':'CLE','cowboys':'DAL','broncos':'DEN',
- 'lions':'DET','packers':'GB','texans':'HOU','colts':'IND','jaguars':'JAX',
- 'chiefs':'KC','raiders':'LV','chargers':'LAC','rams':'LA','dolphins':'MIA',
- 'vikings':'MIN','patriots':'NE','saints':'NO','giants':'NYG','jets':'NYJ',
- 'eagles':'PHI','steelers':'PIT','seahawks':'SEA','49ers':'SF','buccaneers':'TB',
- 'titans':'TEN','commanders':'WAS'}
+OURTEAMS = {'ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU',
+ 'IND','JAX','KC','LV','LAC','LA','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF',
+ 'TB','TEN','WAS'}
+ALIAS = {'LAR':'LA','STL':'LA','WSH':'WAS','JAC':'JAX','LVR':'LV','OAK':'LV','SD':'LAC'}
+NICK2ABBR = {'cardinals':'ARI','falcons':'ATL','ravens':'BAL','bills':'BUF','panthers':'CAR',
+ 'bears':'CHI','bengals':'CIN','browns':'CLE','cowboys':'DAL','broncos':'DEN','lions':'DET',
+ 'packers':'GB','texans':'HOU','colts':'IND','jaguars':'JAX','chiefs':'KC','raiders':'LV',
+ 'chargers':'LAC','rams':'LA','dolphins':'MIA','vikings':'MIN','patriots':'NE','saints':'NO',
+ 'giants':'NYG','jets':'NYJ','eagles':'PHI','steelers':'PIT','seahawks':'SEA','49ers':'SF',
+ 'buccaneers':'TB','titans':'TEN','commanders':'WAS'}
 
-def _abbr(name):
-    if not name: return None
-    n = str(name).lower()
+def _ab(row, side):
+    # prefer the reliable nested abbreviation, fall back to nickname on the name
+    node = row.get(side)
+    if isinstance(node, dict) and node.get('abbreviation'):
+        x = str(node['abbreviation']).upper(); x = ALIAS.get(x, x)
+        if x in OURTEAMS: return x
+    name = str(row.get(side + '_team', '')).lower()
     for nick, ab in NICK2ABBR.items():
-        if nick in n: return ab
+        if nick in name: return ab
     return None
 
 def fetch_odds(api_key):
@@ -38,25 +45,30 @@ def fetch_odds(api_key):
         with urllib.request.urlopen(req, timeout=25) as r:
             payload = json.load(r)
         rows = payload.get('data', payload if isinstance(payload, list) else [])
-        print('SHARP RAW BILLS:', [r for r in rows if 'bills' in str(r.get('away_team','')).lower() or 'bills' in str(r.get('home_team','')).lower()][:6])
-        print('SHARP RAW COUNT:', len(rows), 'rows total')
         BOOK = {'draftkings': 'dk', 'fanduel': 'fd'}
         games = {}
         for row in rows:
             bk = BOOK.get(str(row.get('sportsbook', '')).lower())
             if not bk: continue
-            home = _abbr(row.get('home_team')); away = _abbr(row.get('away_team'))
-            if not home or not away: continue
+            if row.get('is_alternate_line'): continue                      # skip alternate lines
+            seg = str(row.get('market_segment') or '').lower()
+            mt = str(row.get('market_type') or '').lower()
+            if 'half' in seg or 'quarter' in seg or 'half' in mt or 'quarter' in mt:
+                continue                                                    # skip partial-game markets
+            is_spread = 'point_spread' in mt or mt == 'spread'
+            is_total = 'total_points' in mt or mt == 'total'
+            if not (is_spread or is_total): continue
             line = row.get('line')
             if line is None: continue
             line = float(line)
-            mkt = str(row.get('market_type', '')).lower()
+            home = _ab(row, 'home'); away = _ab(row, 'away')
+            if not home or not away: continue
             slot = games.setdefault((away, home), {}).setdefault(bk, {})
-            if 'spread' in mkt:
-                sel = _abbr(row.get('selection'))
-                if sel == home: slot['s'] = -line
-                elif sel == away: slot['s'] = line
-            elif 'total' in mkt:
+            if is_spread:
+                side = str(row.get('team_side') or row.get('selection_type') or '').lower()
+                if side == 'home': slot['s'] = -line
+                elif side == 'away': slot['s'] = line
+            elif is_total:
                 slot['t'] = line
         clean = {}
         for k, books in games.items():
@@ -69,6 +81,6 @@ def fetch_odds(api_key):
 
 if __name__ == '__main__':
     res = fetch_odds(os.environ.get('SHARPAPI_KEY'))
-    print(f'Got odds for {len(res)} games')
+    print(f'Got FULL-GAME odds for {len(res)} games')
     for k, v in list(res.items())[:6]:
         print(k, v)
