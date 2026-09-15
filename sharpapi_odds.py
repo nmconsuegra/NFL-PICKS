@@ -51,12 +51,13 @@ def fetch_odds(api_key):
             for row in rows:
                 bk = {'draftkings': 'dk', 'fanduel': 'fd'}.get(str(row.get('sportsbook', '')).lower())
                 if not bk: continue
-                if row.get('is_alternate_line'): continue
+                if row.get('is_alternate_line') is True: continue
+                if row.get('is_main_line') is False: continue   # ignore alternate/buy-point lines
                 seg = str(row.get('market_segment') or '').lower()
                 mt = str(row.get('market_type') or '').lower()
                 if 'half' in seg or 'quarter' in seg or 'half' in mt or 'quarter' in mt: continue
-                is_spread = 'spread' in mt
-                is_total = ('total' in mt) and ('team' not in mt)
+                is_spread = 'point_spread' in mt      # full-game spread only
+                is_total = 'total_points' in mt        # game points total only (not touchdowns/team totals)
                 if not (is_spread or is_total): continue
                 line = row.get('line')
                 if line is None: continue
