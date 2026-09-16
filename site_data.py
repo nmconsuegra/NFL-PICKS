@@ -68,17 +68,19 @@ for _,g in games.iterrows():
         pm=RB0+RB1*sd; ptot=RTB0+RTB1*comb
         cs=float(g['cs']); ct=float(g['ct']); res=float(g['hs']-g['as_']); tot_act=int(g['hs']+g['as_'])
         pick=h if pm>0 else a
-        ats='P' if res==0 else ('W' if ((pm>0)==(res>0)) else 'L')
-        TOL=7.0
-        ou='W' if abs(ptot-tot_act)<=TOL else 'L'
-        oupick='within '+str(int(TOL))+' pts'
+        cover=(res>pm) if pm>=0 else (res<pm)                 # did our winner cover OUR number
+        ats='P' if res==pm else ('W' if cover else 'L')
+        ou='P' if tot_act==ptot else ('W' if tot_act<ptot else 'L')   # under our total = hit
+        vcov=(res>cs) if cs>=0 else (res<cs)                  # grade Vegas the same standalone way
+        vats='P' if res==cs else ('W' if vcov else 'L')
+        vou='P' if tot_act==ct else ('W' if tot_act<ct else 'L')
         qs=QSCORES.get((int(g['week']),a,h))
         aq=qs['aq'][:] if qs else []; hq=qs['hq'][:] if qs else []
         if aq: aq[-1]+=int(g['as_'])-sum(aq)
         if hq: hq[-1]+=int(g['hs'])-sum(hq)
         results.append({'week':int(g['week']),'away':a,'home':h,'ascore':int(g['as_']),'hscore':int(g['hs']),
             'result':res,'cs':cs,'pm':round(pm,1),'ats':ats,'pick':pick,'aq':aq,'hq':hq,
-            'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'oupick':oupick})
+            'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'vats':vats,'vou':vou})
     off_rtg[h]=go(h)+ALPHA*((ho+gd(a))-go(h)); off_rtg[a]=go(a)+ALPHA*((ao+gd(h))-go(a))
     def_rtg[h]=gd(h)+ALPHA*((go(a)-ao)-gd(h));  def_rtg[a]=gd(a)+ALPHA*((go(h)-ho)-gd(a))
     for t,oe in [(h,ho),(a,ao)]: recent.setdefault(t,[]).append(oe)
@@ -232,7 +234,7 @@ def _rec(key):
     w=sum(1 for r in results if r[key]=='W'); l=sum(1 for r in results if r[key]=='L')
     pu=sum(1 for r in results if r[key]=='P'); n=w+l
     return {'w':w,'l':l,'p':pu,'wr':round(w/n*100,1) if n else 0,'roi':round((w*0.909-l)/n*100,1) if n else 0}
-record={'ats':_rec('ats'),'ou':_rec('ou'),'games':len(results),'season':CURSEASON}
+record={'ats':_rec('ats'),'ou':_rec('ou'),'vats':_rec('vats'),'vou':_rec('vou'),'games':len(results),'season':CURSEASON}
 # ---- CLV tracking: records the line when the model picks, compares to close (accrues over daily runs) ----
 try:
     import os as _os, json as _js
