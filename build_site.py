@@ -696,10 +696,10 @@ document.getElementById('player-search').addEventListener('input',e=>{
     const spMargin=Math.abs(r.result);
     const won=r.result>0?r.home:(r.result<0?r.away:'tie'); const offS=Math.abs(r.pm-r.result).toFixed(1);
     const outc=r.result===0?'Game tied':`${won} won by ${spMargin}`;
-    const spText=`We predicted <b>${lineStr(r.pm,r.home,r.away)}</b> — needed ${r.pick} to win by ${Math.abs(r.pm).toFixed(1)}+. ${outc}. <span style="color:var(--muted)">Off by ${offS}.</span>`;
+    const spText=`We predicted <b>${lineStr(r.pm,r.home,r.away)}</b> — needed ${r.pick} to win by ${Math.abs(r.pm).toFixed(1)}+. ${outc}.`;
     const offT=Math.abs(r.ptot-r.tot).toFixed(1);
     const dir=r.tot<r.ptot?'under':(r.tot>r.ptot?'over':'right on');
-    const ouText=`We projected <b>${r.ptot.toFixed(1)} total</b> (under = hit). Game landed on ${r.tot} — ${dir} our number. <span style="color:var(--muted)">Off by ${offT}.</span>`;
+    const ouText=`We projected <b>${r.ptot.toFixed(1)} total</b> (under = hit). Game landed on ${r.tot} — ${dir} our number.`;
     rows+=`<div class="grow">
       <div class="ghead">
         <div class="gmu"><span class="gwk">W${r.week}</span>${r.away} @ ${r.home}</div>
