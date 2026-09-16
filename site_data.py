@@ -67,10 +67,11 @@ for _,g in games.iterrows():
         sd=(go(h)+gd(h))-(go(a)+gd(a)); comb=(go(h)-gd(a))+(go(a)-gd(h))
         pm=RB0+RB1*sd; ptot=RTB0+RTB1*comb
         cs=float(g['cs']); ct=float(g['ct']); res=float(g['hs']-g['as_']); tot_act=int(g['hs']+g['as_'])
-        edge=pm-cs; pick=h if edge>0 else a
-        ats='P' if res==cs else ('W' if ((edge>0)==(res>cs)) else 'L')
-        oupick='Over' if ptot>ct else 'Under'
-        ou='P' if tot_act==ct else ('W' if ((ptot>ct)==(tot_act>ct)) else 'L')
+        pick=h if pm>0 else a
+        ats='P' if res==0 else ('W' if ((pm>0)==(res>0)) else 'L')
+        TOL=7.0
+        ou='W' if abs(ptot-tot_act)<=TOL else 'L'
+        oupick='within '+str(int(TOL))+' pts'
         qs=QSCORES.get((int(g['week']),a,h))
         aq=qs['aq'][:] if qs else []; hq=qs['hq'][:] if qs else []
         if aq: aq[-1]+=int(g['as_'])-sum(aq)
