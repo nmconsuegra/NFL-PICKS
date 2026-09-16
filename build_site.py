@@ -660,13 +660,13 @@ document.getElementById('player-search').addEventListener('input',e=>{
   document.getElementById('rec-count').textContent=(rec.games||0)+' games graded';
   const ats=rec.ats||{}, ou=rec.ou||{};
   const cards=`<div class="rec-cards">
-    <div class="rec-card"><h4>AGAINST THE SPREAD — model vs Vegas close</h4>
+    <div class="rec-card"><h4>STRAIGHT-UP WINNER — did our pick win</h4>
       <div class="rec-big">${ats.w||0}-${ats.l||0}${ats.p?('-'+ats.p):''}</div>
       <div class="rec-sub">${ats.wr||0}% · ROI ${ats.roi>=0?'+':''}${ats.roi||0}% at -110</div></div>
-    <div class="rec-card"><h4>TOTALS — Over/Under vs Vegas close</h4>
+    <div class="rec-card"><h4>TOTAL — projection within 7 pts</h4>
       <div class="rec-big">${ou.w||0}-${ou.l||0}${ou.p?('-'+ou.p):''}</div>
       <div class="rec-sub">${ou.wr||0}% · ROI ${ou.roi>=0?'+':''}${ou.roi||0}% at -110</div></div></div>`;
-  const note=`<div class="rec-note">Every completed ${rec.season||''} game, graded <b>walk-forward</b> — each pick uses only what the model knew before kickoff, versus the closing Vegas line, net of -110 vig. <b>This is a tiny sample (${rec.games||0} games)</b>, so it's mostly noise right now; over a full season a real edge looks like the low-to-mid 50s%, and single weeks swing wildly in both directions. DraftKings & FanDuel records will accrue here over time as those numbers get logged each week.</div>`;
+  const note=`<div class="rec-note">How the model's <b>standalone</b> predictions did (${rec.games||0} games this season) — graded against the real result, not against a betting line. "Winner" = our projected winner actually won; "Total" = our projected total landed within 7 points. Note: picking winners is an easy bar (favorites win often), so read the winner % as "did we call the game," not "would we beat the spread." The book columns below are shown for context only — they don't affect the grade.</div>`;
   const clv=DATA.clv_summary||{n:0};
   const clvBlock=clv.n>0
     ? `<div class="rec-card" style="margin-bottom:14px"><h4>CLOSING LINE VALUE — did the model beat the closing number?</h4><div class="rec-big">${clv.beatpct}% <span style="font-size:14px;color:var(--muted)">(${clv.beat}/${clv.n})</span></div><div class="rec-sub">avg ${clv.avg>=0?'+':''}${clv.avg} pts vs close · this predicts long-run profit better than win rate</div></div>`
@@ -681,13 +681,15 @@ document.getElementById('player-search').addEventListener('input',e=>{
       <tr><td>${r.home}</td>${r.hq.map(x=>`<td>${x}</td>`).join('')}<td class="qtot">${r.hscore}</td></tr></tbody></table>`
       :`<div class="inj-none">Quarter breakdown not available for this game.</div>`;
     const spWon=r.ats==='W', spMargin=Math.abs(r.result);
-    const spText=`We took <b>${r.pick} ${r.pick===(r.cs>0?r.home:r.away)?'-':'+'}${Math.abs(r.cs).toFixed(1)}</b> (model had ${lineStr(r.pm,r.home,r.away)}). ${r.result>0?r.home:r.away} ${r.result===0?'tied':'by '+spMargin}.`;
-    const ouText=`We took <b>${r.oupick} ${r.ct.toFixed(1)}</b> (model projected ${r.ptot.toFixed(1)}). Game landed on ${r.tot}.`;
+    const won=r.result>0?r.home:(r.result<0?r.away:'tie'); const offS=Math.abs(Math.abs(r.pm)-Math.abs(r.result)).toFixed(1);
+    const spText=`We predicted <b>${r.pick} to win</b> (by ${Math.abs(r.pm).toFixed(1)}). ${r.result===0?'Game tied':won+' won by '+spMargin}. <span style="color:var(--muted)">Margin off by ${offS}.</span>`;
+    const offT=Math.abs(r.ptot-r.tot).toFixed(1);
+    const ouText=`We projected <b>${r.ptot.toFixed(1)} total</b>. Game landed on ${r.tot}. <span style="color:var(--muted)">Off by ${offT} (hit if within 7).</span>`;
     rows+=`<div class="grow">
       <div class="ghead">
         <div class="gmu"><span class="gwk">W${r.week}</span>${r.away} @ ${r.home}</div>
         <div class="gfin">${r.away} <span class="${r.ascore>r.hscore?'w':''}">${r.ascore}</span>–<span class="${r.hscore>r.ascore?'w':''}">${r.hscore}</span> ${r.home}</div>
-        <div class="gbadge ${bcls(r.ats)}">SPREAD ${bsym(r.ats)}</div>
+        <div class="gbadge ${bcls(r.ats)}">WINNER ${bsym(r.ats)}</div>
         <div class="gbadge ${bcls(r.ou)}">TOTAL ${bsym(r.ou)}<span class="gchev">▾</span></div>
       </div>
       <div class="gdetail">
