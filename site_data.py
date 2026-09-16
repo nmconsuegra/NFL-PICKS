@@ -10,11 +10,25 @@ print("Pulling latest data... (~20s)")
 t0=time.time()
 
 frames=[]
+QSCORES={}
 for s in WINDOW:
     pbp=nfl.load_pbp(seasons=[s]).to_pandas()
     pl=pbp[((pbp['pass']==1)|(pbp['rush']==1))].dropna(subset=['epa','posteam','defteam'])
     off=pl.groupby(['game_id','posteam']).agg(off_epa=('epa','mean')).reset_index().rename(columns={'posteam':'team'})
     frames.append(off)
+    if s==max(WINDOW):
+        for gid,gp in pbp.groupby('game_id'):
+            gp=gp.dropna(subset=['qtr'])
+            if gp.empty: continue
+            ht=gp['home_team'].iloc[0]; at=gp['away_team'].iloc[0]; wk=int(gp['week'].iloc[0])
+            hc=[]; ac=[]
+            for q in (1,2,3,4):
+                qq=gp[gp['qtr']==q]
+                hc.append(float(qq['total_home_score'].iloc[-1]) if len(qq) else (hc[-1] if hc else 0.0))
+                ac.append(float(qq['total_away_score'].iloc[-1]) if len(qq) else (ac[-1] if ac else 0.0))
+            hq=[int(hc[0])]+[int(hc[i]-hc[i-1]) for i in range(1,4)]
+            aq=[int(ac[0])]+[int(ac[i]-ac[i-1]) for i in range(1,4)]
+            QSCORES[(wk,at,ht)]={'aq':aq,'hq':hq}
 epa=pd.concat(frames,ignore_index=True)
 
 sch=nfl.load_schedules(seasons=WINDOW).to_pandas()
@@ -57,8 +71,12 @@ for _,g in games.iterrows():
         ats='P' if res==cs else ('W' if ((edge>0)==(res>cs)) else 'L')
         oupick='Over' if ptot>ct else 'Under'
         ou='P' if tot_act==ct else ('W' if ((ptot>ct)==(tot_act>ct)) else 'L')
+        qs=QSCORES.get((int(g['week']),a,h))
+        aq=qs['aq'][:] if qs else []; hq=qs['hq'][:] if qs else []
+        if aq: aq[-1]+=int(g['as_'])-sum(aq)
+        if hq: hq[-1]+=int(g['hs'])-sum(hq)
         results.append({'week':int(g['week']),'away':a,'home':h,'ascore':int(g['as_']),'hscore':int(g['hs']),
-            'result':res,'cs':cs,'pm':round(pm,1),'ats':ats,'pick':pick,
+            'result':res,'cs':cs,'pm':round(pm,1),'ats':ats,'pick':pick,'aq':aq,'hq':hq,
             'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'oupick':oupick})
     off_rtg[h]=go(h)+ALPHA*((ho+gd(a))-go(h)); off_rtg[a]=go(a)+ALPHA*((ao+gd(h))-go(a))
     def_rtg[h]=gd(h)+ALPHA*((go(a)-ao)-gd(h));  def_rtg[a]=gd(a)+ALPHA*((go(h)-ho)-gd(a))
