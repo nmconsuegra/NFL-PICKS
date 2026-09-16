@@ -203,6 +203,40 @@ HTML = r'''<!DOCTYPE html>
   .restbl td{padding:9px 8px;border-bottom:1px solid var(--line);font-weight:600}
   .restbl tr:last-child td{border-bottom:none}
   .res-w{color:var(--up);font-weight:900}.res-l{color:var(--down);font-weight:900}.res-p{color:var(--muted);font-weight:800}
+  .grow{border:1px solid var(--line);border-radius:0}
+  .grow{border-bottom:1px solid var(--line)}.grow:last-child{border-bottom:none}
+  .ghead{display:grid;grid-template-columns:1.4fr auto auto auto;gap:10px;align-items:center;padding:13px 14px;cursor:pointer;transition:background .12s}
+  .ghead:hover{background:var(--panel2)}.grow.open .ghead{background:var(--panel2)}
+  .gmu{font-weight:800;font-size:15px}.gmu .gwk{color:var(--muted);font-weight:700;font-size:12px;margin-right:7px}
+  .gfin{font-weight:800;font-size:14.5px;text-align:right;white-space:nowrap}.gfin .w{color:var(--up)}
+  .gbadge{font-size:10.5px;font-weight:900;padding:3px 7px;border-radius:6px;min-width:70px;text-align:center;white-space:nowrap}
+  .gbadge.hit{background:rgba(90,168,122,.16);color:var(--up)}
+  .gbadge.miss{background:rgba(209,104,94,.16);color:var(--down)}
+  .gbadge.push{background:var(--panel2);color:var(--muted)}
+  .gchev{margin-left:5px}
+  .gdetail{display:none;padding:2px 14px 16px;border-top:1px solid var(--line);background:#12161d}
+  .grow.open .gdetail{display:block}
+  .gdh{font-size:11px;font-weight:800;color:var(--muted);margin:15px 0 8px}
+  .boxt{width:100%;border-collapse:collapse;font-size:13.5px}
+  .boxt th{font-size:11px;color:var(--muted);font-weight:700;text-align:center;padding:5px 4px;border-bottom:1px solid var(--line)}
+  .boxt th:first-child{text-align:left}
+  .boxt td{text-align:center;padding:7px 4px;font-weight:700;border-bottom:1px solid var(--line)}
+  .boxt td:first-child{text-align:left;font-weight:800}.boxt tr:last-child td{border-bottom:none}
+  .boxt .qtot{color:var(--amber);font-weight:900}
+  .cmp4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  @media(max-width:560px){.cmp4{grid-template-columns:1fr 1fr}}
+  .c4{border:1px solid var(--line);border-radius:8px;padding:9px 6px;text-align:center;background:var(--panel)}
+  .c4 .l{font-size:10px;font-weight:800;color:var(--muted);margin-bottom:4px}
+  .c4.mdl .l{color:var(--amber)}.c4.fdl .l{color:#6aa0e0}
+  .c4 .sp{font-size:15px;font-weight:900}.c4 .to{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px}
+  .vd{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .vdr{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;padding:11px 12px;border-bottom:1px solid var(--line)}
+  .vdr:last-child{border-bottom:none}
+  .vdk{font-size:12px;font-weight:800;color:var(--muted)}.vdt{font-size:13px;line-height:1.5}.vdt b{font-weight:800}
+  .vdres{font-size:11.5px;font-weight:900;padding:4px 9px;border-radius:6px;white-space:nowrap}
+  .vdres.hit{background:rgba(90,168,122,.16);color:var(--up)}
+  .vdres.miss{background:rgba(209,104,94,.16);color:var(--down)}
+  .vdres.push{background:var(--panel2);color:var(--muted)}
   .inj2{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
   .inj2 .col{padding:16px 22px}
   .inj2 .col:first-child{border-right:1px solid var(--line)}
@@ -633,21 +667,43 @@ document.getElementById('player-search').addEventListener('input',e=>{
       <div class="rec-big">${ou.w||0}-${ou.l||0}${ou.p?('-'+ou.p):''}</div>
       <div class="rec-sub">${ou.wr||0}% · ROI ${ou.roi>=0?'+':''}${ou.roi||0}% at -110</div></div></div>`;
   const note=`<div class="rec-note">Every completed ${rec.season||''} game, graded <b>walk-forward</b> — each pick uses only what the model knew before kickoff, versus the closing Vegas line, net of -110 vig. <b>This is a tiny sample (${rec.games||0} games)</b>, so it's mostly noise right now; over a full season a real edge looks like the low-to-mid 50s%, and single weeks swing wildly in both directions. DraftKings & FanDuel records will accrue here over time as those numbers get logged each week.</div>`;
-  let rows='';
-  R.slice().sort((a,b)=>b.week-a.week).forEach(r=>{
-    const atsC=r.ats==='W'?'res-w':r.ats==='L'?'res-l':'res-p';
-    const ouC=r.ou==='W'?'res-w':r.ou==='L'?'res-l':'res-p';
-    rows+=`<tr><td>W${r.week}</td><td>${r.away} @ ${r.home}</td><td>${r.ascore}-${r.hscore}</td>
-      <td>${lineStr(r.cs,r.home,r.away)} → <span style="color:var(--amber)">${lineStr(r.pm,r.home,r.away)}</span></td>
-      <td>${r.pick} <span class="${atsC}">${r.ats}</span></td>
-      <td>${r.oupick} <span class="${ouC}">${r.ou}</span></td></tr>`;
-  });
   const clv=DATA.clv_summary||{n:0};
   const clvBlock=clv.n>0
     ? `<div class="rec-card" style="margin-bottom:14px"><h4>CLOSING LINE VALUE — did the model beat the closing number?</h4><div class="rec-big">${clv.beatpct}% <span style="font-size:14px;color:var(--muted)">(${clv.beat}/${clv.n})</span></div><div class="rec-sub">avg ${clv.avg>=0?'+':''}${clv.avg} pts vs close · this predicts long-run profit better than win rate</div></div>`
-    : `<div class="rec-card" style="margin-bottom:14px"><h4>CLOSING LINE VALUE — the metric that actually matters</h4><div class="rec-sub" style="margin-top:4px;line-height:1.55">Starts accruing once the site is hosted. Each run logs the line when the model makes a pick, then compares it to the closing number. <b>Beating the close</b> (positive CLV) is the professional's real scoreboard — it predicts long-run profit far better than win/loss, and it fills in here after your first hosted week of line movement.</div></div>`;
+    : `<div class="rec-card" style="margin-bottom:14px"><h4>CLOSING LINE VALUE</h4><div class="rec-sub" style="margin-top:4px;line-height:1.55">Accrues going forward — logs the line when the model picks, then compares to the close. Fills in after your first hosted week.</div></div>`;
+  const bcls=res=>res==='W'?'hit':res==='L'?'miss':'push';
+  const bsym=res=>res==='W'?'✓':res==='L'?'✗':'P';
+  let rows='';
+  R.slice().sort((a,b)=>b.week-a.week||(a.away<b.away?-1:1)).forEach(r=>{
+    const c4=(lbl,cls,s,t)=>`<div class="c4 ${cls}"><div class="l">${lbl}</div>`+(s==null?`<div class="sp" style="color:var(--muted);font-size:13px">—</div><div class="to">not logged</div>`:`<div class="sp">${lineStr(s,r.home,r.away)}</div><div class="to">o/u ${t.toFixed(1)}</div>`)+`</div>`;
+    const box=(r.aq&&r.aq.length)?`<table class="boxt"><thead><tr><th>Team</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Final</th></tr></thead><tbody>
+      <tr><td>${r.away}</td>${r.aq.map(x=>`<td>${x}</td>`).join('')}<td class="qtot">${r.ascore}</td></tr>
+      <tr><td>${r.home}</td>${r.hq.map(x=>`<td>${x}</td>`).join('')}<td class="qtot">${r.hscore}</td></tr></tbody></table>`
+      :`<div class="inj-none">Quarter breakdown not available for this game.</div>`;
+    const spWon=r.ats==='W', spMargin=Math.abs(r.result);
+    const spText=`We took <b>${r.pick} ${r.pick===(r.cs>0?r.home:r.away)?'-':'+'}${Math.abs(r.cs).toFixed(1)}</b> (model had ${lineStr(r.pm,r.home,r.away)}). ${r.result>0?r.home:r.away} ${r.result===0?'tied':'by '+spMargin}.`;
+    const ouText=`We took <b>${r.oupick} ${r.ct.toFixed(1)}</b> (model projected ${r.ptot.toFixed(1)}). Game landed on ${r.tot}.`;
+    rows+=`<div class="grow">
+      <div class="ghead">
+        <div class="gmu"><span class="gwk">W${r.week}</span>${r.away} @ ${r.home}</div>
+        <div class="gfin">${r.away} <span class="${r.ascore>r.hscore?'w':''}">${r.ascore}</span>–<span class="${r.hscore>r.ascore?'w':''}">${r.hscore}</span> ${r.home}</div>
+        <div class="gbadge ${bcls(r.ats)}">SPREAD ${bsym(r.ats)}</div>
+        <div class="gbadge ${bcls(r.ou)}">TOTAL ${bsym(r.ou)}<span class="gchev">▾</span></div>
+      </div>
+      <div class="gdetail">
+        <div class="gdh">BOX SCORE</div>${box}
+        <div class="gdh">THE LINE — us vs the books</div>
+        <div class="cmp4">${c4('OUR MODEL','mdl',r.pm,r.ptot)}${c4('VEGAS','',r.cs,r.ct)}${c4('DRAFTKINGS','',null,null)}${c4('FANDUEL','fdl',null,null)}</div>
+        <div class="gdh">DID WE HIT?</div>
+        <div class="vd">
+          <div class="vdr"><div class="vdk">SPREAD</div><div class="vdt">${spText}</div><div class="vdres ${bcls(r.ats)}">${r.ats==='W'?'✓ HIT':r.ats==='P'?'PUSH':'✗ MISS'}</div></div>
+          <div class="vdr"><div class="vdk">TOTAL</div><div class="vdt">${ouText}</div><div class="vdres ${bcls(r.ou)}">${r.ou==='W'?'✓ HIT':r.ou==='P'?'PUSH':'✗ MISS'}</div></div>
+        </div>
+      </div></div>`;
+  });
   document.getElementById('results-body').innerHTML=cards+clvBlock+note+
-    (R.length?`<table class="restbl"><thead><tr><th>Wk</th><th>Matchup</th><th>Final</th><th>Vegas → Model</th><th>ATS pick</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="inj-none">No completed games yet this season — check back after Week 1.</div>');
+    (R.length?`<div class="board">${rows}</div>`:'<div class="inj-none">No completed games yet this season.</div>');
+  document.querySelectorAll('#results-body .ghead').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('open'));
 })();
 
 // tabs (4-way)
