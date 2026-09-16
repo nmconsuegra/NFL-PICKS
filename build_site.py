@@ -237,6 +237,15 @@ HTML = r'''<!DOCTYPE html>
   .vdres.hit{background:rgba(90,168,122,.16);color:var(--up)}
   .vdres.miss{background:rgba(209,104,94,.16);color:var(--down)}
   .vdres.push{background:var(--panel2);color:var(--muted)}
+  .rccards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:6px}
+  @media(max-width:640px){.rccards{grid-template-columns:1fr 1fr}}
+  .rccard{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:13px 14px}
+  .rclbl{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:9px;letter-spacing:.02em}
+  .rclbl.model{color:var(--amber)}.rclbl.fdl{color:#6aa0e0}
+  .rcline{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);font-weight:600;margin-bottom:4px}
+  .rcline b{color:var(--text);font-size:17px;font-weight:900;margin-left:auto;margin-right:6px}
+  .rcp{color:var(--muted);font-weight:700;font-size:12px;min-width:34px;text-align:right}
+  .rcbuild{font-size:12px;color:var(--muted);line-height:1.4;padding:4px 0}
   .inj2{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
   .inj2 .col{padding:16px 22px}
   .inj2 .col:first-child{border-right:1px solid var(--line)}
@@ -658,15 +667,19 @@ document.getElementById('player-search').addEventListener('input',e=>{
 (function renderResults(){
   const R=DATA.results||[], rec=DATA.record||{ats:{},ou:{},games:0};
   document.getElementById('rec-count').textContent=(rec.games||0)+' games graded';
-  const ats=rec.ats||{}, ou=rec.ou||{};
-  const cards=`<div class="rec-cards">
-    <div class="rec-card"><h4>STRAIGHT-UP WINNER — did our pick win</h4>
-      <div class="rec-big">${ats.w||0}-${ats.l||0}${ats.p?('-'+ats.p):''}</div>
-      <div class="rec-sub">${ats.wr||0}% · ROI ${ats.roi>=0?'+':''}${ats.roi||0}% at -110</div></div>
-    <div class="rec-card"><h4>TOTAL — projection within 7 pts</h4>
-      <div class="rec-big">${ou.w||0}-${ou.l||0}${ou.p?('-'+ou.p):''}</div>
-      <div class="rec-sub">${ou.wr||0}% · ROI ${ou.roi>=0?'+':''}${ou.roi||0}% at -110</div></div></div>`;
-  const note=`<div class="rec-note">How the model's <b>standalone</b> predictions did (${rec.games||0} games this season) — graded against the real result, not against a betting line. "Winner" = our projected winner actually won; "Total" = our projected total landed within 7 points. Note: picking winners is an easy bar (favorites win often), so read the winner % as "did we call the game," not "would we beat the spread." The book columns below are shown for context only — they don't affect the grade.</div>`;
+  const wl=o=>`${(o&&o.w)||0}-${(o&&o.l)||0}${(o&&o.p)?('-'+o.p):''}`;
+  const wp=o=>`${(o&&o.wr!=null)?o.wr:0}%`;
+  const rcCard=(lbl,cls,sp,tt,building)=>`<div class="rccard"><div class="rclbl ${cls}">${lbl}</div>`+
+    (building?`<div class="rcbuild">building — fills in going forward</div>`:
+     `<div class="rcline"><span>Spread</span><b>${wl(sp)}</b> <span class="rcp">${wp(sp)}</span></div>
+      <div class="rcline"><span>Total</span><b>${wl(tt)}</b> <span class="rcp">${wp(tt)}</span></div>`)+`</div>`;
+  const cards=`<div class="rccards">
+    ${rcCard('OUR MODEL','model',rec.ats,rec.ou,false)}
+    ${rcCard('VEGAS','',rec.vats,rec.vou,false)}
+    ${rcCard('DRAFTKINGS','',null,null,true)}
+    ${rcCard('FANDUEL','fdl',null,null,true)}
+  </div>`;
+  const note=`<div class="rec-note">Each prediction is graded <b>against our own number</b> (${rec.games||0} games): the spread hits if our pick covers the margin we projected, and the total hits if the game landed <b>under</b> our projected total. Vegas is graded the same way for a fair side-by-side. DraftKings and FanDuel start empty and build up as games finish going forward. This is a small early sample, so read it as a trend, not proof.</div>`;
   const clv=DATA.clv_summary||{n:0};
   const clvBlock=clv.n>0
     ? `<div class="rec-card" style="margin-bottom:14px"><h4>CLOSING LINE VALUE — did the model beat the closing number?</h4><div class="rec-big">${clv.beatpct}% <span style="font-size:14px;color:var(--muted)">(${clv.beat}/${clv.n})</span></div><div class="rec-sub">avg ${clv.avg>=0?'+':''}${clv.avg} pts vs close · this predicts long-run profit better than win rate</div></div>`
@@ -680,16 +693,18 @@ document.getElementById('player-search').addEventListener('input',e=>{
       <tr><td>${r.away}</td>${r.aq.map(x=>`<td>${x}</td>`).join('')}<td class="qtot">${r.ascore}</td></tr>
       <tr><td>${r.home}</td>${r.hq.map(x=>`<td>${x}</td>`).join('')}<td class="qtot">${r.hscore}</td></tr></tbody></table>`
       :`<div class="inj-none">Quarter breakdown not available for this game.</div>`;
-    const spWon=r.ats==='W', spMargin=Math.abs(r.result);
-    const won=r.result>0?r.home:(r.result<0?r.away:'tie'); const offS=Math.abs(Math.abs(r.pm)-Math.abs(r.result)).toFixed(1);
-    const spText=`We predicted <b>${r.pick} to win</b> (by ${Math.abs(r.pm).toFixed(1)}). ${r.result===0?'Game tied':won+' won by '+spMargin}. <span style="color:var(--muted)">Margin off by ${offS}.</span>`;
+    const spMargin=Math.abs(r.result);
+    const won=r.result>0?r.home:(r.result<0?r.away:'tie'); const offS=Math.abs(r.pm-r.result).toFixed(1);
+    const outc=r.result===0?'Game tied':`${won} won by ${spMargin}`;
+    const spText=`We predicted <b>${lineStr(r.pm,r.home,r.away)}</b> — needed ${r.pick} to win by ${Math.abs(r.pm).toFixed(1)}+. ${outc}. <span style="color:var(--muted)">Off by ${offS}.</span>`;
     const offT=Math.abs(r.ptot-r.tot).toFixed(1);
-    const ouText=`We projected <b>${r.ptot.toFixed(1)} total</b>. Game landed on ${r.tot}. <span style="color:var(--muted)">Off by ${offT} (hit if within 7).</span>`;
+    const dir=r.tot<r.ptot?'under':(r.tot>r.ptot?'over':'right on');
+    const ouText=`We projected <b>${r.ptot.toFixed(1)} total</b> (under = hit). Game landed on ${r.tot} — ${dir} our number. <span style="color:var(--muted)">Off by ${offT}.</span>`;
     rows+=`<div class="grow">
       <div class="ghead">
         <div class="gmu"><span class="gwk">W${r.week}</span>${r.away} @ ${r.home}</div>
         <div class="gfin">${r.away} <span class="${r.ascore>r.hscore?'w':''}">${r.ascore}</span>–<span class="${r.hscore>r.ascore?'w':''}">${r.hscore}</span> ${r.home}</div>
-        <div class="gbadge ${bcls(r.ats)}">WINNER ${bsym(r.ats)}</div>
+        <div class="gbadge ${bcls(r.ats)}">SPREAD ${bsym(r.ats)}</div>
         <div class="gbadge ${bcls(r.ou)}">TOTAL ${bsym(r.ou)}<span class="gchev">▾</span></div>
       </div>
       <div class="gdetail">
