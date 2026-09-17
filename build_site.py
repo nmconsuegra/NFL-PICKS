@@ -123,6 +123,14 @@ HTML = r'''<!DOCTYPE html>
   .pcell{text-align:center}.pcell .n{font-weight:900;font-size:13px}@media(max-width:600px){.pcell .n{font-size:11px}}
   .pcell .n.hit{color:var(--up)}.pcell .n.miss{color:var(--down)}.pcell .n.push{color:var(--muted)}
   .pcell .r{font-size:9.5px;color:var(--muted);font-weight:700;margin-top:1px}
+  .twobtn{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}@media(max-width:520px){.twobtn{grid-template-columns:1fr}}
+  .bigbtn{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:26px 20px;cursor:pointer;text-align:center}
+  .bigbtn:hover{background:var(--panel2);border-color:var(--amber-dim)}
+  .bigbtn .t{font-size:18px;font-weight:900;color:var(--amber)}.bigbtn .s{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px}
+  .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}@media(max-width:600px){.pgrid{grid-template-columns:repeat(3,1fr)}}
+  .gbtn{background:var(--panel);border:1px solid var(--line);color:var(--text);font-weight:900;font-size:18px;padding:18px 10px;border-radius:11px;cursor:pointer;text-align:center}
+  .gbtn:hover{background:var(--panel2)}.gbtn.on{background:var(--panel2);color:var(--amber);border-color:var(--amber-dim)}
+  .gbtn .sub{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-top:4px}
   .projtbl{display:grid;grid-template-columns:1.2fr repeat(4,1fr);gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}.projtbl:last-child{border-bottom:none}
   .projtbl.head{font-size:10px;font-weight:800;color:var(--muted)}
   .pjc{text-align:center;font-weight:800;font-size:13.5px}.pjc.amber{color:var(--amber)}.pjc.dash{color:#3a4453}
@@ -181,6 +189,7 @@ let rMode='week', rWeek=resWeeks[0];
 const propWeeks=[...new Set(PR.map(e=>e.w))].sort((a,b)=>b-a);
 let pMode='week', pWeek=propWeeks[0];
 let plWeek=null;
+let propNav='home', propPick=null;
 
 function bkCell(o,h,a){return o?'<div class="bkcell"><div class="sp">'+lineStr(o.s,h,a)+'</div><div class="ou">o/u '+o.t.toFixed(1)+'</div></div>':'<div class="bkcell"><div class="sp" style="color:var(--muted)">—</div><div class="ou">—</div></div>';}
 function vegasObj(g){return g.spread!=null?{s:g.spread,t:g.total}:null;}
@@ -245,13 +254,28 @@ function props(){
     h+='<div class="sec">WEEK BY WEEK — hit rate (all props)</div><div class="trend"><div class="trow head"><div>Week</div><div>Over / Under</div><div>Hit rate</div></div>'+
       propWeeks.slice().sort((a,b)=>a-b).map(w=>{const L=PR.filter(e=>e.w===w);let ww=0,ll=0;L.forEach(e=>PSHORT.forEach(k=>{if(e.s[k]){if(e.s[k][2]==='W')ww++;else if(e.s[k][2]==='L')ll++;}}));const n=ww+ll;return '<div class="trow" onclick="jumpProp('+w+')"><div class="twk">W'+w+'</div><div class="tcell"><span class="rec">'+ww+'-'+ll+'</span></div><div class="tcell"><span class="rec">'+(n?Math.round(ww/n*1000)/10:0)+'%</span></div></div>';}).join('')+'</div>';
   }else{
+    const wlist=PR.filter(e=>e.w===pWeek);
     const cell=c=>c?'<div class="pcell"><div class="n"><span style="color:var(--amber)">'+c[0]+'</span> <span style="color:var(--muted)">→</span> <b>'+c[1]+'</b></div><div class="r" style="color:'+(c[2]==='W'?'var(--up)':c[2]==='L'?'var(--down)':'var(--muted)')+'">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pcell"><div class="n" style="color:#3a4453">—</div></div>';
-    const sorted=list.slice().sort((a,b)=>a.tm<b.tm?-1:a.tm>b.tm?1:(a.p<b.p?-1:1));
-    h+='<div class="sec">WEEK '+pWeek+' — every notable player</div>';
-    h+='<div class="rec-note" style="margin:0 0 10px">Each cell shows <b style="color:var(--amber)">our projection</b> → <b>actual result</b>. Green ✓ = the player went <b>over</b> our number (hit); red ✗ = under. &nbsp; <b>Rec Yds</b> = receiving yards · <b>Rec</b> = receptions (catches) · <b>Rush Yds</b> = rushing yards · <b>Pass Yds</b> = passing yards.</div>';
-    h+='<div class="board"><div class="plr head"><div>Player</div>'+PSHORT.map(k=>'<div class="pcell">'+PSLBL[k]+'</div>').join('')+'</div>'+
-      sorted.map(e=>{const key=pkeyByNT[nrm(e.p)+'|'+e.tm];const nm=key?'<span class="lnk" style="cursor:pointer" onclick="playerDetail(\''+key.replace(/'/g,"\\'")+'\')">'+e.p+'</span>':e.p;
-        return '<div class="plr"><div><b>'+nm+'</b> <span style="color:var(--muted);font-size:11px">'+e.pos+'·'+e.tm+'</span></div>'+PSHORT.map(k=>cell(e.s[k])).join('')+'</div>';}).join('')+'</div>';
+    const renderList=(rows,title)=>{
+      const sorted=rows.slice().sort((a,b)=>{const la=a.p.split(' ').slice(-1)[0].toLowerCase(),lb=b.p.split(' ').slice(-1)[0].toLowerCase();return la<lb?-1:la>lb?1:0;});
+      return '<div class="sec">'+title+' — WEEK '+pWeek+' · '+sorted.length+' players (alphabetical by last name)</div>'+
+        '<div class="rec-note" style="margin:0 0 10px">Each cell: <b style="color:var(--amber)">our projection</b> → <b>actual result</b>. Green ✓ = went <b>over</b> our number (hit); red ✗ = under. &nbsp; <b>Rec Yds</b> = receiving yards · <b>Rec</b> = receptions (catches) · <b>Rush Yds</b> = rushing yards · <b>Pass Yds</b> = passing yards.</div>'+
+        '<div class="board"><div class="plr head"><div>Player</div>'+PSHORT.map(k=>'<div class="pcell">'+PSLBL[k]+'</div>').join('')+'</div>'+
+        sorted.map(e=>{const key=pkeyByNT[nrm(e.p)+'|'+e.tm];const nm=key?'<span class="lnk" style="cursor:pointer" onclick="playerDetail(\''+key.replace(/'/g,"\\'")+'\')">'+e.p+'</span>':e.p;
+          return '<div class="plr"><div><b>'+nm+'</b> <span style="color:var(--muted);font-size:11px">'+e.pos+'·'+e.tm+'</span></div>'+PSHORT.map(k=>cell(e.s[k])).join('')+'</div>';}).join('')+'</div>';};
+    if(propNav==='home'){
+      h+='<div class="twobtn"><div class="bigbtn" onclick="propGo(\'team\')"><div class="t">PICK A TEAM</div><div class="s">browse every team\'s players</div></div><div class="bigbtn" onclick="propGo(\'pos\')"><div class="t">PICK A POSITION</div><div class="s">QB · RB · WR · TE</div></div></div>';
+    }else if(propNav==='team'){
+      const teams=[...new Set(wlist.map(e=>e.tm))].sort();const cnt={};teams.forEach(t=>cnt[t]=wlist.filter(e=>e.tm===t).length);
+      h+='<div class="back" onclick="propGo(\'home\')">‹ Back</div><div class="sec">PICK A TEAM</div><div class="pgrid">'+
+        teams.map(t=>'<div class="gbtn '+(propPick===t?'on':'')+'" onclick="propSetPick(\''+t+'\')">'+t+'<span class="sub">'+cnt[t]+'</span></div>').join('')+'</div>';
+      h+=(propPick&&teams.includes(propPick))?renderList(wlist.filter(e=>e.tm===propPick),propPick):'<div class="none">Pick a team above to see its players.</div>';
+    }else if(propNav==='pos'){
+      const poss=['QB','RB','WR','TE'];const cnt={};poss.forEach(p=>cnt[p]=wlist.filter(e=>e.pos===p).length);
+      h+='<div class="back" onclick="propGo(\'home\')">‹ Back</div><div class="sec">PICK A POSITION</div><div class="pgrid">'+
+        poss.map(p=>'<div class="gbtn '+(propPick===p?'on':'')+'" onclick="propSetPick(\''+p+'\')">'+p+'<span class="sub">'+cnt[p]+'</span></div>').join('')+'</div>';
+      h+=(propPick&&poss.includes(propPick))?renderList(wlist.filter(e=>e.pos===propPick),propPick):'<div class="none">Pick a position above to see its players.</div>';
+    }
   }
   view.innerHTML=h;hintEl.textContent=pMode==='season'?'Season prop hit-rate up top · week-by-week below.':'Each player: actual vs our projection, over/under. Tap a name for their projections & why.';
   document.getElementById('pseasonbtn').onclick=()=>{pMode='season';props();};
@@ -260,6 +284,8 @@ function props(){
   document.getElementById('pnext').onclick=()=>{pMode='week';const i=propWeeks.indexOf(pWeek);if(i>0){pWeek=propWeeks[i-1];props();}};
 }
 function jumpProp(w){pMode='week';pWeek=w;props();}
+function propGo(m){propNav=m;propPick=null;props();}
+function propSetPick(v){propPick=v;props();}
 
 function teamsList(){
   const abbrs=Object.keys(T).filter(a=>a!=='LA').sort((x,y)=>T[x].ovr_rank-T[y].ovr_rank);
