@@ -172,6 +172,36 @@ for (nm,pos),grp in pstats.groupby(['player_display_name','position']):
     main=SH[SBP[pos][0]]
     if main in st and sum(st[main])/len(st[main])>=15:
         players[key]={'name':nm,'pos':pos,'team':tm,'stats':st}
+# ---- player prop grading (walk-forward, graded vs our own projection) ----
+notable=set(players[k]['name'] for k in players)
+def _wproj(vals):
+    v=vals[-8:]; n=len(v)
+    if n<3: return None
+    ws=[0.5+0.5*(i/(n-1) if n>1 else 1) for i in range(n)]
+    return sum(v[i]*ws[i] for i in range(n))/sum(ws)
+prop_results=[]; cur_s=int(games.season.max())
+for (nm,pos),grp in pstats.groupby(['player_display_name','position']):
+    if nm not in notable or pos not in SBP: continue
+    grp=grp.sort_values(['season','week'])
+    for _,row in grp[grp['season']==cur_s].iterrows():
+        wk=int(row['week']); tm=row['team']; ent={}
+        for col in SBP[pos]:
+            prior=grp[(grp['season']<cur_s)|((grp['season']==cur_s)&(grp['week']<wk))][col].dropna().astype(float).tolist()
+            proj=_wproj(prior)
+            if proj is None or pd.isna(row[col]): continue
+            actual=float(row[col]); res='W' if actual>proj else ('L' if actual<proj else 'P')
+            ent[SH[col]]=[round(proj,1),round(actual),res]
+        if ent: prop_results.append({'w':wk,'p':nm,'pos':pos,'tm':tm,'s':ent})
+def _prec(k):
+    w=l=p=0
+    for e in prop_results:
+        if k in e['s']:
+            r=e['s'][k][2]
+            if r=='W':w+=1
+            elif r=='L':l+=1
+            else:p+=1
+    n=w+l; return {'w':w,'l':l,'p':p,'wr':round(w/n*100,1) if n else 0}
+prop_record={'rec_yds':_prec('rec_yds'),'receptions':_prec('receptions'),'rush_yds':_prec('rush_yds'),'pass_yds':_prec('pass_yds')}
 inj_week=None
 try:
     ij=nfl.load_injuries(seasons=[int(games.season.max())]).to_pandas()
@@ -188,10 +218,15 @@ try:
 except Exception as e:
     print('injury pull failed:',e)
     for t in team_data: team_data[t]['inj']=[]
+import re as _re
+def nrm(s):
+    s=str(s).lower().replace('.','').replace("'",'').replace('-',' ')
+    s=_re.sub(r'\b(jr|sr|ii|iii|iv)\b','',s)
+    return ' '.join(s.split())
 inj_lookup={}
 for t in team_data:
-    for x in team_data[t].get('inj',[]): inj_lookup[(x['name'],t)]={'status':x['status'],'note':x['note']}
-for pl in players.values(): pl['inj']=inj_lookup.get((pl['name'],pl['team']))
+    for x in team_data[t].get('inj',[]): inj_lookup[(nrm(x['name']),t)]={'status':x['status'],'note':x['note']}
+for pl in players.values(): pl['inj']=inj_lookup.get((nrm(pl['name']),pl['team']))
 # ---- QB adjustment: downgrade a team's projection when its starter is OUT ----
 try:
     _qb=pstats[(pstats['position']=='QB')].dropna(subset=['attempts']); _qb=_qb[_qb['attempts']>0]
@@ -205,10 +240,10 @@ try:
     qb_out=set()
     if inj_week:
         for _,r in ij[ij['position']=='QB'].iterrows():
-            if str(r['report_status']) in ('Out','Doubtful'): qb_out.add((str(r['full_name']),r['team']))
+            if str(r['report_status']) in ('Out','Doubtful'): qb_out.add((nrm(str(r['full_name'])),r['team']))
     def _qb_delta(team):
         st=starters.get(team)
-        if not st or (st,team) not in qb_out: return 0.0,None
+        if not st or (nrm(st),team) not in qb_out: return 0.0,None
         sv=qbval.get((st,team)); sv=sv if sv is not None else LEAGUE_QB
         bk=backups.get(team); bv=qbval.get((bk,team)) if bk else None
         bv=bv if bv is not None else (LEAGUE_QB-0.10)
@@ -264,7 +299,7 @@ try:
     clv_summary={'n':n,'beat':beat,'beatpct':round(beat/n*100,1) if n else 0,'avg':round(sum(c['pts'] for c in clv)/n,2) if n else 0}
 except Exception as e:
     print('CLV tracking skipped:',e); clv=[]; clv_summary={'n':0,'beat':0,'beatpct':0,'avg':0}
-out={'teams':team_data,'games':gl,'players':players,'inj_week':inj_week,'results':results,'record':record,'clv':clv,'clv_summary':clv_summary,'cal':{'B0':1.6,'B1':51.0,'TB0':45.5,'TB1':27.0},
+out={'teams':team_data,'games':gl,'players':players,'inj_week':inj_week,'results':results,'record':record,'prop_results':prop_results,'prop_record':prop_record,'clv':clv,'clv_summary':clv_summary,'cal':{'B0':1.6,'B1':51.0,'TB0':45.5,'TB1':27.0},
      'as_of':f'Through {int(games.season.max())} Week {maxwk}'}
 json.dump(out,open('./nfl_data.json','w'))
 print(f"  Ratings rebuilt. Upcoming games with lines: {len(gl)}")
