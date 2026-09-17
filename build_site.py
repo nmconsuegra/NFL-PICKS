@@ -243,7 +243,7 @@ function props(){
     h+='<div class="sec">WEEK BY WEEK — hit rate (all props)</div><div class="trend"><div class="trow head"><div>Week</div><div>Over / Under</div><div>Hit rate</div></div>'+
       propWeeks.slice().sort((a,b)=>a-b).map(w=>{const L=PR.filter(e=>e.w===w);let ww=0,ll=0;L.forEach(e=>PSHORT.forEach(k=>{if(e.s[k]){if(e.s[k][2]==='W')ww++;else if(e.s[k][2]==='L')ll++;}}));const n=ww+ll;return '<div class="trow" onclick="jumpProp('+w+')"><div class="twk">W'+w+'</div><div class="tcell"><span class="rec">'+ww+'-'+ll+'</span></div><div class="tcell"><span class="rec">'+(n?Math.round(ww/n*1000)/10:0)+'%</span></div></div>';}).join('')+'</div>';
   }else{
-    const cell=c=>c?'<div class="pcell"><div class="n '+(c[2]==='W'?'hit':c[2]==='L'?'miss':'push')+'">'+c[1]+' <span style="color:var(--muted)">vs '+c[0]+'</span></div><div class="r">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pcell"><div class="n" style="color:#3a4453">—</div></div>';
+    const cell=c=>c?'<div class="pcell"><div class="n '+(c[2]==='W'?'hit':c[2]==='L'?'miss':'push')+'">'+c[0]+' <span style="color:var(--muted)">→ '+c[1]+'</span></div><div class="r">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pcell"><div class="n" style="color:#3a4453">—</div></div>';
     const sorted=list.slice().sort((a,b)=>a.tm<b.tm?-1:a.tm>b.tm?1:(a.p<b.p?-1:1));
     h+='<div class="sec">WEEK '+pWeek+' — every notable player</div><div class="board"><div class="plr head"><div>Player</div>'+PSHORT.map(k=>'<div class="pcell">'+PSLBL[k]+'</div>').join('')+'</div>'+
       sorted.map(e=>{const key=pkeyByNT[nrm(e.p)+'|'+e.tm];const nm=key?'<span class="lnk" style="cursor:pointer" onclick="playerDetail(\''+key.replace(/'/g,"\\'")+'\')">'+e.p+'</span>':e.p;
@@ -301,24 +301,21 @@ function playersList(){
 function playerDetail(key){
   const pl=P[key];if(!pl)return;
   const badge=pl.inj?'<span class="pst '+(pl.inj.status==='Out'?'o':'q')+'">'+pl.inj.status+(pl.inj.note?' — '+pl.inj.note:'')+'</span>':'<span class="pst a">Active — no injury reported</span>';
+  const myres=PR.filter(e=>e.p===pl.name&&e.tm===pl.team);
   let blocks='';
-  for(const s in pl.stats){const vals=pl.stats[s],pr=projStat(vals);
-    blocks+='<div class="propstat" data-proj="'+pr.proj+'" data-sd="'+pr.sd+'" data-s="'+s+'"><div class="ps-head"><span class="ps-name">'+STATLABEL[s]+'</span><span class="ps-proj">proj '+pr.proj.toFixed(1)+' · swing ±'+pr.sd.toFixed(0)+'</span></div>'+
-      '<div class="ps-games">Last '+vals.length+': '+vals.map(v=>Math.round(v)).join(', ')+'</div>'+
-      '<div class="ps-calc"><label>Book\'s line</label><input class="lineinput" type="number" step="0.5" placeholder="'+pr.proj.toFixed(1)+'" data-for="'+s+'"><span class="ps-out" id="out-'+s+'">enter a line →</span><span class="ps-lean" id="lean-'+s+'" style="display:none"></span></div></div>';}
+  for(const s of (PROPSTATS[pl.pos]||[])){if(!pl.stats[s])continue;const pr=projStat(pl.stats[s]);
+    const rows=myres.filter(e=>e.s[s]).sort((a,b)=>a.w-b.w).map(e=>{const c=e.s[s];const cls=c[2]==='W'?'wl W':c[2]==='L'?'wl L':'';const lbl=c[2]==='W'?'✓ OVER':c[2]==='P'?'PUSH':'✗ under';return '<tr><td>W'+e.w+'</td><td>'+c[0]+'</td><td>'+c[1]+'</td><td class="'+cls+'">'+lbl+'</td></tr>';}).join('');
+    blocks+='<div class="propstat"><div class="ps-head"><span class="ps-name">'+STATLABEL[s]+'</span><span class="ps-proj">this week: '+pr.proj.toFixed(1)+'</span></div>'+
+      (rows?'<table class="logtbl"><thead><tr><th>Wk</th><th>Our proj</th><th>Actual</th><th>Over / Under</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="none" style="padding:6px 0">No graded weeks yet — fills in as games finish.</div>')+'</div>';}
   let why='';const ms=(PROPSTATS[pl.pos]||[])[0];
   if(ms&&pl.stats[ms]){const v=pl.stats[ms];const pr=projStat(v);const avg=v.reduce((x,y)=>x+y,0)/v.length;const last=pl.name.split(' ').slice(-1)[0];
-    why='<div class="sec">OUR PROJECTION — why</div><div class="take"><div class="takewhy">We project <b style="color:var(--amber)">'+pr.proj.toFixed(1)+' '+STATLABEL[ms].toLowerCase()+'</b> for '+last+'. He\'s averaged '+avg.toFixed(1)+' over his last '+v.length+' games, weighted toward the most recent. '+(pl.inj?'<b style="color:var(--amber)">Note: on the injury report ('+pl.inj.status+').</b> ':'')+'<span style="color:var(--muted)">Compare our number to the book\'s posted line below — over or under is the bet.</span></div></div>';}
+    why='<div class="sec">OUR PROJECTION — why</div><div class="take"><div class="takewhy">We project <b style="color:var(--amber)">'+pr.proj.toFixed(1)+' '+STATLABEL[ms].toLowerCase()+'</b> for '+last+' this week. He\'s averaged '+avg.toFixed(1)+' over his last '+v.length+' games, weighted toward the most recent. '+(pl.inj?'<b style="color:var(--amber)">Note: on the injury report ('+pl.inj.status+').</b> ':'')+'<span style="color:var(--muted)">"Over" means the actual beat our number.</span></div></div>';}
   gpage.innerHTML='<div class="back" onclick="showTab(\'players\')">‹ Back to players</div>'+
     '<div class="gp-head"><div class="gp-mu">'+pl.name+'</div><div class="gp-kick">'+pl.pos+' · '+pl.team+' · '+DATA.as_of+'</div><div style="margin-top:8px">'+badge+'</div></div>'+
-    why+'<div class="sec">PROP LINES — our projection vs the book</div>'+
+    why+'<div class="sec">OUR PROJECTIONS — week by week</div>'+
     blocks+
-    '<div class="none" style="line-height:1.5">Projection is recency-weighted from recent games; "swing" is the game-to-game standard deviation. Props are high-variance — treat any lean as one small bet in volume, not a lock.</div>';
+    '<div class="none" style="line-height:1.5">Each week shows our projection, the actual result, and whether it went over or under our number. Book prop lines (Vegas/DraftKings/FanDuel) aren\'t shown — player props aren\'t in the free odds feed (that needs a paid props feed). Props are high-variance; read the record over a large sample.</div>';
   goPage();
-  gpage.querySelectorAll('.lineinput').forEach(inp=>inp.addEventListener('input',()=>{const box=inp.closest('.propstat'),proj=+box.dataset.proj,sd=+box.dataset.sd,s=box.dataset.s,out=document.getElementById('out-'+s),lean=document.getElementById('lean-'+s),L=parseFloat(inp.value);
-    if(isNaN(L)){out.textContent='enter a line →';lean.style.display='none';return;}
-    const pOver=1-normCdf(L,proj,sd),pUnder=1-pOver;out.innerHTML='<span class="ov">Over '+(pOver*100).toFixed(0)+'%</span> · <span class="un">Under '+(pUnder*100).toFixed(0)+'%</span>';
-    const side=pOver>0.524?'OVER':pUnder>0.524?'UNDER':'no edge';lean.style.display='';lean.textContent=side==='no edge'?'≈ coin flip':'Lean '+side;}));
 }
 
 function injBlock(ab){const inj=(T[ab].inj||[]).slice(0,6);if(!inj.length)return '<div class="none" style="padding:6px 0">No injuries reported.</div>';
