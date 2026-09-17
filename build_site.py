@@ -150,6 +150,7 @@ const T=DATA.teams,C=DATA.cal,P=DATA.players||{},GAMES=DATA.games||[],RES=DATA.r
 const PR=DATA.prop_results||[],PRC=DATA.prop_record||{};
 const PROPSTATS={QB:['pass_yds','rush_yds'],RB:['rush_yds','rec_yds','receptions'],WR:['rec_yds','receptions'],TE:['rec_yds','receptions']};
 const PSHORT=['rec_yds','receptions','rush_yds','pass_yds'],PSLBL={rec_yds:'Rec Yds',receptions:'Rec',rush_yds:'Rush Yds',pass_yds:'Pass Yds'};
+const PSFULL={rec_yds:'Receiving Yards',receptions:'Receptions (catches)',rush_yds:'Rushing Yards',pass_yds:'Passing Yards'};
 const view=document.getElementById('view'),gpage=document.getElementById('gamepage'),hintEl=document.getElementById('hint');
 function tier(r){return r<=6?'elite':r<=13?'good':r<=20?'average':'weak';}
 function project(a,h,adjH,adjA){adjH=adjH||0;adjA=adjA||0;const H=T[h],A=T[a];
@@ -179,6 +180,7 @@ const resWeeks=[...new Set(RES.map(r=>r.week))].sort((a,b)=>b-a);
 let rMode='week', rWeek=resWeeks[0];
 const propWeeks=[...new Set(PR.map(e=>e.w))].sort((a,b)=>b-a);
 let pMode='week', pWeek=propWeeks[0];
+let plWeek=null;
 
 function bkCell(o,h,a){return o?'<div class="bkcell"><div class="sp">'+lineStr(o.s,h,a)+'</div><div class="ou">o/u '+o.t.toFixed(1)+'</div></div>':'<div class="bkcell"><div class="sp" style="color:var(--muted)">—</div><div class="ou">—</div></div>';}
 function vegasObj(g){return g.spread!=null?{s:g.spread,t:g.total}:null;}
@@ -236,16 +238,18 @@ function propRec(list,k){let w=0,l=0,p=0;list.forEach(e=>{if(e.s[k]){const r=e.s
 function props(){
   let h='<div class="selbar"><button class="seasonbtn '+(pMode==='season'?'on':'')+'" id="pseasonbtn">Full season</button><div class="vdiv"></div><button class="arw" id="pprev">‹</button><div class="selwrap"><select class="sel" id="psel">'+propWeeks.map(w=>'<option value="'+w+'" '+(w===pWeek?'selected':'')+'>Week '+w+'</option>').join('')+'</select></div><button class="arw" id="pnext">›</button></div>';
   const list=pMode==='season'?PR:PR.filter(e=>e.w===pWeek);
-  const card=k=>{const r=propRec(list,k);return '<div class="rccard"><div class="rclbl model">'+PSLBL[k].toUpperCase()+'</div><div class="rcline"><span>Over / Under</span><b>'+r.w+'-'+r.l+'</b><span class="rcp">'+r.wr+'%</span></div><div class="rcline"><span style="font-size:11px">over our number = hit</span></div></div>';};
+  const card=k=>{const r=propRec(list,k);return '<div class="rccard"><div class="rclbl model">'+PSFULL[k].toUpperCase()+'</div><div class="rcline"><span>Over / Under</span><b>'+r.w+'-'+r.l+'</b><span class="rcp">'+r.wr+'%</span></div><div class="rcline"><span style="font-size:11px">over our number = hit</span></div></div>';};
   h+='<div class="rccards">'+PSHORT.map(card).join('')+'</div>';
   h+='<div class="rec-note">Each player prop graded <b>against our own projection</b> — over our number is a hit, under is a miss. Projections come from the player\'s recent games. <b>Props are the highest-variance thing here</b>, so these swing hard week to week — read them over a large sample. DraftKings/FanDuel prop lines aren\'t graded (that needs a paid feed); this is our number vs the real result.</div>';
   if(pMode==='season'){
     h+='<div class="sec">WEEK BY WEEK — hit rate (all props)</div><div class="trend"><div class="trow head"><div>Week</div><div>Over / Under</div><div>Hit rate</div></div>'+
       propWeeks.slice().sort((a,b)=>a-b).map(w=>{const L=PR.filter(e=>e.w===w);let ww=0,ll=0;L.forEach(e=>PSHORT.forEach(k=>{if(e.s[k]){if(e.s[k][2]==='W')ww++;else if(e.s[k][2]==='L')ll++;}}));const n=ww+ll;return '<div class="trow" onclick="jumpProp('+w+')"><div class="twk">W'+w+'</div><div class="tcell"><span class="rec">'+ww+'-'+ll+'</span></div><div class="tcell"><span class="rec">'+(n?Math.round(ww/n*1000)/10:0)+'%</span></div></div>';}).join('')+'</div>';
   }else{
-    const cell=c=>c?'<div class="pcell"><div class="n '+(c[2]==='W'?'hit':c[2]==='L'?'miss':'push')+'">'+c[0]+' <span style="color:var(--muted)">→ '+c[1]+'</span></div><div class="r">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pcell"><div class="n" style="color:#3a4453">—</div></div>';
+    const cell=c=>c?'<div class="pcell"><div class="n"><span style="color:var(--amber)">'+c[0]+'</span> <span style="color:var(--muted)">→</span> <b>'+c[1]+'</b></div><div class="r" style="color:'+(c[2]==='W'?'var(--up)':c[2]==='L'?'var(--down)':'var(--muted)')+'">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pcell"><div class="n" style="color:#3a4453">—</div></div>';
     const sorted=list.slice().sort((a,b)=>a.tm<b.tm?-1:a.tm>b.tm?1:(a.p<b.p?-1:1));
-    h+='<div class="sec">WEEK '+pWeek+' — every notable player</div><div class="board"><div class="plr head"><div>Player</div>'+PSHORT.map(k=>'<div class="pcell">'+PSLBL[k]+'</div>').join('')+'</div>'+
+    h+='<div class="sec">WEEK '+pWeek+' — every notable player</div>';
+    h+='<div class="rec-note" style="margin:0 0 10px">Each cell shows <b style="color:var(--amber)">our projection</b> → <b>actual result</b>. Green ✓ = the player went <b>over</b> our number (hit); red ✗ = under. &nbsp; <b>Rec Yds</b> = receiving yards · <b>Rec</b> = receptions (catches) · <b>Rush Yds</b> = rushing yards · <b>Pass Yds</b> = passing yards.</div>';
+    h+='<div class="board"><div class="plr head"><div>Player</div>'+PSHORT.map(k=>'<div class="pcell">'+PSLBL[k]+'</div>').join('')+'</div>'+
       sorted.map(e=>{const key=pkeyByNT[nrm(e.p)+'|'+e.tm];const nm=key?'<span class="lnk" style="cursor:pointer" onclick="playerDetail(\''+key.replace(/'/g,"\\'")+'\')">'+e.p+'</span>':e.p;
         return '<div class="plr"><div><b>'+nm+'</b> <span style="color:var(--muted);font-size:11px">'+e.pos+'·'+e.tm+'</span></div>'+PSHORT.map(k=>cell(e.s[k])).join('')+'</div>';}).join('')+'</div>';
   }
@@ -298,24 +302,39 @@ function playersList(){
   view.innerHTML=h;hintEl.textContent='Search a player. Tap to see prop projections — type the book\'s line to get the over/under read.';
   document.getElementById('psearch').addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('#plist .prow').forEach(r=>r.style.display=r.dataset.n.includes(q)?'':'none');});
 }
-function playerDetail(key){
+function playerDetail(key,wk){
   const pl=P[key];if(!pl)return;
   const badge=pl.inj?'<span class="pst '+(pl.inj.status==='Out'?'o':'q')+'">'+pl.inj.status+(pl.inj.note?' — '+pl.inj.note:'')+'</span>':'<span class="pst a">Active — no injury reported</span>';
   const myres=PR.filter(e=>e.p===pl.name&&e.tm===pl.team);
-  let blocks='';
-  for(const s of (PROPSTATS[pl.pos]||[])){if(!pl.stats[s])continue;const pr=projStat(pl.stats[s]);
-    const rows=myres.filter(e=>e.s[s]).sort((a,b)=>a.w-b.w).map(e=>{const c=e.s[s];const cls=c[2]==='W'?'wl W':c[2]==='L'?'wl L':'';const lbl=c[2]==='W'?'✓ OVER':c[2]==='P'?'PUSH':'✗ under';return '<tr><td>W'+e.w+'</td><td>'+c[0]+'</td><td>'+c[1]+'</td><td class="'+cls+'">'+lbl+'</td></tr>';}).join('');
-    blocks+='<div class="propstat"><div class="ps-head"><span class="ps-name">'+STATLABEL[s]+'</span><span class="ps-proj">this week: '+pr.proj.toFixed(1)+'</span></div>'+
-      (rows?'<table class="logtbl"><thead><tr><th>Wk</th><th>Our proj</th><th>Actual</th><th>Over / Under</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="none" style="padding:6px 0">No graded weeks yet — fills in as games finish.</div>')+'</div>';}
-  let why='';const ms=(PROPSTATS[pl.pos]||[])[0];
-  if(ms&&pl.stats[ms]){const v=pl.stats[ms];const pr=projStat(v);const avg=v.reduce((x,y)=>x+y,0)/v.length;const last=pl.name.split(' ').slice(-1)[0];
-    why='<div class="sec">OUR PROJECTION — why</div><div class="take"><div class="takewhy">We project <b style="color:var(--amber)">'+pr.proj.toFixed(1)+' '+STATLABEL[ms].toLowerCase()+'</b> for '+last+' this week. He\'s averaged '+avg.toFixed(1)+' over his last '+v.length+' games, weighted toward the most recent. '+(pl.inj?'<b style="color:var(--amber)">Note: on the injury report ('+pl.inj.status+').</b> ':'')+'<span style="color:var(--muted)">"Over" means the actual beat our number.</span></div></div>';}
+  const playedW=[...new Set(myres.map(e=>e.w))].sort((a,b)=>a-b);
+  const teamNext=(T[pl.team]&&T[pl.team].next)?T[pl.team].next.week:null;
+  const weeks=playedW.slice();if(teamNext&&!weeks.includes(teamNext))weeks.push(teamNext);
+  if(!weeks.length)weeks.push(1);
+  const upcoming=teamNext&&!playedW.includes(teamNext)?teamNext:null;
+  let sel=wk!=null?wk:(plWeek!=null&&weeks.includes(plWeek)?plWeek:weeks[weeks.length-1]);
+  plWeek=sel;
+  const stats=(PROPSTATS[pl.pos]||[]).filter(s=>pl.stats[s]);
+  let blocks=stats.map(s=>{
+    const played=myres.find(e=>e.w===sel&&e.s[s]);
+    if(played){const c=played.s[s];const cls=c[2]==='W'?'var(--up)':c[2]==='L'?'var(--down)':'var(--muted)';const lbl=c[2]==='W'?'✓ OVER our number':c[2]==='P'?'PUSH':'✗ under our number';
+      return '<div class="propstat"><div class="ps-head"><span class="ps-name">'+STATLABEL[s]+'</span></div><div class="ps-calc" style="gap:20px"><div><div style="font-size:11px;color:var(--muted);font-weight:700">OUR PROJECTION</div><div style="font-size:20px;font-weight:900;color:var(--amber)">'+c[0]+'</div></div><div><div style="font-size:11px;color:var(--muted);font-weight:700">ACTUAL</div><div style="font-size:20px;font-weight:900">'+c[1]+'</div></div><div class="ps-lean" style="color:'+cls+';border-color:'+cls+'">'+lbl+'</div></div></div>';}
+    else{const pr=projStat(pl.stats[s]);
+      return '<div class="propstat"><div class="ps-head"><span class="ps-name">'+STATLABEL[s]+'</span></div><div class="ps-calc" style="gap:20px"><div><div style="font-size:11px;color:var(--muted);font-weight:700">OUR PROJECTION</div><div style="font-size:20px;font-weight:900;color:var(--amber)">'+pr.proj.toFixed(1)+'</div></div><div><div style="font-size:11px;color:var(--muted);font-weight:700">ACTUAL</div><div style="font-size:15px;font-weight:700;color:var(--muted)">not played yet</div></div></div></div>';}
+  }).join('');
+  const wsel='<div class="selbar" style="margin:14px 0"><button class="arw" id="plprev">‹</button><div class="selwrap"><select class="sel" id="plsel">'+weeks.slice().sort((a,b)=>b-a).map(w=>'<option value="'+w+'" '+(w===sel?'selected':'')+'>Week '+w+(w===upcoming?' (upcoming)':'')+'</option>').join('')+'</select></div><button class="arw" id="plnext">›</button></div>';
+  let why='';const ms=stats[0];
+  if(ms&&sel===upcoming){const v=pl.stats[ms];const pr=projStat(v);const avg=v.reduce((x,y)=>x+y,0)/v.length;const last=pl.name.split(' ').slice(-1)[0];
+    why='<div class="take" style="margin-bottom:14px"><div class="takewhy">This week we project <b style="color:var(--amber)">'+pr.proj.toFixed(1)+' '+STATLABEL[ms].toLowerCase()+'</b> for '+last+' — he\'s averaged '+avg.toFixed(1)+' over his last '+v.length+' games, weighted recent. '+(pl.inj?'<b style="color:var(--amber)">On the injury report ('+pl.inj.status+').</b> ':'')+'<span style="color:var(--muted)">"Over" means the actual beats our number.</span></div></div>';}
   gpage.innerHTML='<div class="back" onclick="showTab(\'players\')">‹ Back to players</div>'+
-    '<div class="gp-head"><div class="gp-mu">'+pl.name+'</div><div class="gp-kick">'+pl.pos+' · '+pl.team+' · '+DATA.as_of+'</div><div style="margin-top:8px">'+badge+'</div></div>'+
-    why+'<div class="sec">OUR PROJECTIONS — week by week</div>'+
-    blocks+
-    '<div class="none" style="line-height:1.5">Each week shows our projection, the actual result, and whether it went over or under our number. Book prop lines (Vegas/DraftKings/FanDuel) aren\'t shown — player props aren\'t in the free odds feed (that needs a paid props feed). Props are high-variance; read the record over a large sample.</div>';
+    '<div class="gp-head"><div class="gp-mu">'+pl.name+'</div><div class="gp-kick">'+pl.pos+' · '+pl.team+'</div><div style="margin-top:8px">'+badge+'</div></div>'+
+    wsel+why+blocks+
+    '<div class="none" style="line-height:1.5">Pick a week to see our projection vs the actual result. Book prop lines (Vegas/DraftKings/FanDuel) aren\'t shown — player props aren\'t in the free odds feed (that needs a paid props feed). Props are high-variance; judge over a large sample.</div>';
   goPage();
+  document.getElementById('plsel').onchange=e=>playerDetail(key,+e.target.value);
+  document.getElementById('plprev').onclick=()=>{const i=weeks.indexOf(sel);if(i>0)playerDetail(key,weeks[i-1]);};
+  document.getElementById('plnext').onclick=()=>{const i=weeks.indexOf(sel);if(i<weeks.length-1)playerDetail(key,weeks[i+1]);};
+  document.getElementById('plprev').disabled=weeks.indexOf(sel)<=0;
+  document.getElementById('plnext').disabled=weeks.indexOf(sel)>=weeks.length-1;
 }
 
 function injBlock(ab){const inj=(T[ab].inj||[]).slice(0,6);if(!inj.length)return '<div class="none" style="padding:6px 0">No injuries reported.</div>';
