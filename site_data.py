@@ -55,6 +55,14 @@ off_rtg,def_rtg,recent,logs={},{},{},{}
 go=lambda t:off_rtg.get(t,0.0); gd=lambda t:def_rtg.get(t,0.0)
 RB0,RB1,RTB0,RTB1=1.6,51.0,45.5,27.0
 CURSEASON=int(games['season'].max())
+import json as _json
+try: DKFD_HIST=_json.load(open('dkfd_history.json'))
+except Exception: DKFD_HIST={}
+def _bkgrade(res,tot_act,sp,tt):
+    if sp is None or tt is None: return None,None
+    a2='P' if res==sp else ('W' if ((res>sp) if sp>=0 else (res<sp)) else 'L')
+    o2='P' if tot_act==tt else ('W' if tot_act<tt else 'L')
+    return a2,o2
 results=[]
 prev=None
 for _,g in games.iterrows():
@@ -78,9 +86,15 @@ for _,g in games.iterrows():
         aq=qs['aq'][:] if qs else []; hq=qs['hq'][:] if qs else []
         if aq: aq[-1]+=int(g['as_'])-sum(aq)
         if hq: hq[-1]+=int(g['hs'])-sum(hq)
-        results.append({'week':int(g['week']),'away':a,'home':h,'ascore':int(g['as_']),'hscore':int(g['hs']),
+        _dkl=DKFD_HIST.get(f"{CURSEASON}-{int(g['week'])}-{a}-{h}",{})
+        dk_ats,dk_ou=_bkgrade(res,tot_act,_dkl.get('dk_s'),_dkl.get('dk_t'))
+        fd_ats,fd_ou=_bkgrade(res,tot_act,_dkl.get('fd_s'),_dkl.get('fd_t'))
+        _re={'week':int(g['week']),'away':a,'home':h,'ascore':int(g['as_']),'hscore':int(g['hs']),
             'result':res,'cs':cs,'pm':round(pm,1),'ats':ats,'pick':pick,'aq':aq,'hq':hq,
-            'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'vats':vats,'vou':vou})
+            'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'vats':vats,'vou':vou}
+        if dk_ats: _re['dk_ats']=dk_ats; _re['dk_ou']=dk_ou
+        if fd_ats: _re['fd_ats']=fd_ats; _re['fd_ou']=fd_ou
+        results.append(_re)
     off_rtg[h]=go(h)+ALPHA*((ho+gd(a))-go(h)); off_rtg[a]=go(a)+ALPHA*((ao+gd(h))-go(a))
     def_rtg[h]=gd(h)+ALPHA*((go(a)-ao)-gd(h));  def_rtg[a]=gd(a)+ALPHA*((go(h)-ho)-gd(a))
     for t,oe in [(h,ho),(a,ao)]: recent.setdefault(t,[]).append(oe)
@@ -142,6 +156,15 @@ try:
             if 'dk' in bm: g['dk']=bm['dk']
             if 'fd' in bm: g['fd']=bm['fd']
     if _odds: print(f'SharpAPI: odds attached for {len(_odds)} games')
+    # snapshot DK/FD lines so completed games can be graded going forward
+    for g in gl:
+        if not g.get('dk') and not g.get('fd'): continue
+        k=f"{CURSEASON}-{g['week']}-{g['away']}-{g['home']}"
+        rec=DKFD_HIST.get(k,{})
+        if g.get('dk'): rec['dk_s']=g['dk']['s']; rec['dk_t']=g['dk']['t']
+        if g.get('fd'): rec['fd_s']=g['fd']['s']; rec['fd_t']=g['fd']['t']
+        DKFD_HIST[k]=rec
+    _json.dump(DKFD_HIST,open('dkfd_history.json','w'))
 except Exception as e:
     print('SharpAPI hook skipped (manual entry still works):', e)
 unplayed=sch[(sch['game_type']=='REG')&(sch['result'].isna())].sort_values(['week','gameday'])
