@@ -216,7 +216,9 @@ function recOf(list,key){let w=0,l=0,p=0;list.forEach(r=>{if(r[key]==='W')w++;el
 function recCards(list){
   const wl=o=>o.w+'-'+o.l+(o.p?('-'+o.p):'');
   const card=(lbl,cls,sp,tt,building)=>'<div class="rccard"><div class="rclbl '+cls+'">'+lbl+'</div>'+(building?'<div class="rcbuild">building — fills in going forward</div>':'<div class="rcline"><span>Spread</span><b>'+wl(sp)+'</b><span class="rcp">'+sp.wr+'%</span></div><div class="rcline"><span>Total</span><b>'+wl(tt)+'</b><span class="rcp">'+tt.wr+'%</span></div>')+'</div>';
-  return '<div class="rccards">'+card('OUR MODEL','model',recOf(list,'ats'),recOf(list,'ou'),false)+card('VEGAS','',recOf(list,'vats'),recOf(list,'vou'),false)+card('DRAFTKINGS','',null,null,true)+card('FANDUEL','fdl',null,null,true)+'</div>';
+  const dks=recOf(list,'dk_ats'),dkt=recOf(list,'dk_ou'),fds=recOf(list,'fd_ats'),fdt=recOf(list,'fd_ou');
+  const dkEmpty=(dks.w+dks.l+dks.p)===0,fdEmpty=(fds.w+fds.l+fds.p)===0;
+  return '<div class="rccards">'+card('OUR MODEL','model',recOf(list,'ats'),recOf(list,'ou'),false)+card('VEGAS','',recOf(list,'vats'),recOf(list,'vou'),false)+card('DRAFTKINGS','',dks,dkt,dkEmpty)+card('FANDUEL','fdl',fds,fdt,fdEmpty)+'</div>';
 }
 function results(){
   let h='<div class="selbar"><button class="seasonbtn '+(rMode==='season'?'on':'')+'" id="seasonbtn">Full season</button><div class="vdiv"></div><button class="arw" id="rprev">‹</button><div class="selwrap"><select class="sel" id="rsel">'+resWeeks.map(w=>'<option value="'+w+'" '+(w===rWeek?'selected':'')+'>Week '+w+'</option>').join('')+'</select></div><button class="arw" id="rnext">›</button></div>';
