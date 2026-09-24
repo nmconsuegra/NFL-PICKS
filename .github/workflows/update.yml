@@ -24,6 +24,6 @@ jobs:
         run: |
           git config user.name  "nfl-bot"
           git config user.email "nfl-bot@users.noreply.github.com"
-          git add index.html line_history.json
+          git add index.html line_history.json dkfd_history.json
           git commit -m "Auto update" || echo "No changes this run"
           git push
