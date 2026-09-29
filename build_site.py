@@ -385,7 +385,7 @@ function showGame(a,h,week){
   const g=GAMES.find(x=>x.away===a&&x.home===h&&x.week===week);
   const qa=(g&&g.qbadj)||{};const p=project(a,h,qa.home||0,qa.away||0);
   const vegas=r?{s:r.cs,t:r.ct}:(g&&g.spread!=null?{s:g.spread,t:g.total}:null);
-  const dk=g?g.dk:null,fd=g?g.fd:null;
+  const dk=(r&&r.dk_s!=null)?{s:r.dk_s,t:r.dk_t}:(g?g.dk:null),fd=(r&&r.fd_s!=null)?{s:r.fd_s,t:r.fd_t}:(g?g.fd:null);
   const lc=(lbl,cls,o)=>'<div class="lc '+cls+'">'+(o?'<div class="l">'+lbl+'</div><div class="sp">'+lineStr(o.s,h,a)+'</div><div class="ou">o/u '+o.t.toFixed(1)+'</div>':'<div class="l">'+lbl+'</div><div class="sp" style="color:var(--muted);font-size:15px">—</div><div class="ou">not logged</div>')+'</div>';
   let head='<div class="gp-mu"><span class="lnk" onclick="teamDetail(\''+a+'\')">'+T[a].city+' '+T[a].name+'</span> <span style="color:var(--muted);font-weight:600">at</span> <span class="lnk" onclick="teamDetail(\''+h+'\')">'+T[h].city+' '+T[h].name+'</span></div>';
   head+='<div class="gp-kick">'+(g?fmtKick(g.date,g.time):('Week '+week))+'</div>';
