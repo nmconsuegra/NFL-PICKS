@@ -92,8 +92,8 @@ for _,g in games.iterrows():
         _re={'week':int(g['week']),'away':a,'home':h,'ascore':int(g['as_']),'hscore':int(g['hs']),
             'result':res,'cs':cs,'pm':round(pm,1),'ats':ats,'pick':pick,'aq':aq,'hq':hq,
             'ct':ct,'ptot':round(ptot,1),'tot':tot_act,'ou':ou,'vats':vats,'vou':vou}
-        if dk_ats: _re['dk_ats']=dk_ats; _re['dk_ou']=dk_ou
-        if fd_ats: _re['fd_ats']=fd_ats; _re['fd_ou']=fd_ou
+        if dk_ats: _re['dk_ats']=dk_ats; _re['dk_ou']=dk_ou; _re['dk_s']=_dkl.get('dk_s'); _re['dk_t']=_dkl.get('dk_t')
+        if fd_ats: _re['fd_ats']=fd_ats; _re['fd_ou']=fd_ou; _re['fd_s']=_dkl.get('fd_s'); _re['fd_t']=_dkl.get('fd_t')
         results.append(_re)
     off_rtg[h]=go(h)+ALPHA*((ho+gd(a))-go(h)); off_rtg[a]=go(a)+ALPHA*((ao+gd(h))-go(a))
     def_rtg[h]=gd(h)+ALPHA*((go(a)-ao)-gd(h));  def_rtg[a]=gd(a)+ALPHA*((go(h)-ho)-gd(a))
