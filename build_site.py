@@ -371,14 +371,21 @@ function teamCardHTML(ab,side){const t=T[ab];return '<div class="card tm"><h4><s
     '<div class="stat"><div class="top"><span class="lab">Offense <span class="tier">#'+t.off_rank+' '+tier(t.off_rank)+'</span></span><span class="num">'+(t.off>=0?'+':'')+t.off.toFixed(3)+'</span></div><div class="bar"><div class="mid"></div>'+barFill(t.off,0.15)+'</div></div>'+
     '<div class="stat"><div class="top"><span class="lab">Defense <span class="tier">#'+t.def_rank+' '+tier(t.def_rank)+'</span></span><span class="num">'+(t.def>=0?'+':'')+t.def.toFixed(3)+'</span></div><div class="bar"><div class="mid"></div>'+barFill(t.def,0.15)+'</div></div></div>';}
 function whyText(a,h,p){const H=T[h],A=T[a];const f=p.margin>0?h:a;return 'Our model has the '+H.city+' '+H.name+' at #'+H.ovr_rank+' overall ('+tier(H.off_rank)+' offense, '+tier(H.def_rank)+' defense) and the '+A.city+' '+A.name+' at #'+A.ovr_rank+' ('+tier(A.off_rank)+' offense, '+tier(A.def_rank)+' defense). After home field, we make it '+T[f].name+' by '+Math.abs(p.margin).toFixed(1)+'.';}
-function projTable(a,h){
+function projTable(a,h,week,completed){
   const rows=Object.keys(P).filter(k=>P[k].team===a||P[k].team===h).map(k=>({key:k,pl:P[k]})).sort((x,y)=>x.pl.team<y.pl.team?-1:x.pl.team>y.pl.team?1:(x.pl.name<y.pl.name?-1:1));
   if(!rows.length)return '';
   const order=['rec_yds','receptions','rush_yds','pass_yds'];
   const body=rows.map(o=>{const pl=o.pl;const st=PROPSTATS[pl.pos]||[];
-    const cell=k=>(st.includes(k)&&pl.stats[k])?'<div class="pjc amber">'+projStat(pl.stats[k]).proj.toFixed(1)+'</div>':'<div class="pjc dash">—</div>';
+    const e=completed?PR.find(x=>x.p===pl.name&&x.tm===pl.team&&x.w===week):null;
+    const cell=k=>{
+      if(!st.includes(k)||!pl.stats[k])return '<div class="pjc dash">—</div>';
+      if(completed){const c=e&&e.s[k];
+        return c?'<div class="pjc"><div><span style="color:var(--amber)">'+c[0]+'</span> <span style="color:var(--muted)">→</span> <b>'+c[1]+'</b></div><div style="font-size:9.5px;font-weight:700;margin-top:1px;color:'+(c[2]==='W'?'var(--up)':c[2]==='L'?'var(--down)':'var(--muted)')+'">'+(c[2]==='W'?'✓ over':c[2]==='P'?'push':'✗ under')+'</div></div>':'<div class="pjc dash">—</div>';}
+      return '<div class="pjc amber">'+projStat(pl.stats[k]).proj.toFixed(1)+'</div>';};
     return '<div class="projtbl"><div><b class="lnk" style="cursor:pointer" onclick="playerDetail(\''+o.key.replace(/'/g,"\\'")+'\')">'+pl.name+'</b> <span style="color:var(--muted);font-size:11px">'+pl.pos+'·'+pl.team+'</span></div>'+order.map(cell).join('')+'</div>';}).join('');
-  return '<div class="sec">PLAYER PROJECTIONS — our numbers</div><div class="board"><div class="projtbl head"><div>Player</div><div class="pjc">Rec Yds</div><div class="pjc">Rec</div><div class="pjc">Rush Yds</div><div class="pjc">Pass Yds</div></div>'+body+'</div><div class="none" style="font-size:11.5px">Our projection for each notable player (from recent form). Tap a name for the full read and the "why"; bet over/under vs the book\'s posted line.</div>';
+  const title=completed?'PLAYER PROJECTIONS — our number → actual result':'PLAYER PROJECTIONS — our numbers';
+  const note=completed?'For each notable player: <b style="color:var(--amber)">our projection</b> → the actual result, and whether it went over or under our number. Tap a name for their week-by-week history.':'Our projection for each notable player (from recent form). Tap a name for the full read and the "why"; bet over/under vs the book\'s posted line.';
+  return '<div class="sec">'+title+'</div><div class="board"><div class="projtbl head"><div>Player</div><div class="pjc">Rec Yds</div><div class="pjc">Rec</div><div class="pjc">Rush Yds</div><div class="pjc">Pass Yds</div></div>'+body+'</div><div class="none" style="font-size:11.5px">'+note+'</div>';
 }
 function showGame(a,h,week){
   const r=RES.find(x=>x.away===a&&x.home===h&&x.week===week);
@@ -423,7 +430,7 @@ function showGame(a,h,week){
   }
   const backTo=r?"showTab('results')":"showTab('matchups')";
   gpage.innerHTML='<div class="back" onclick="'+backTo+'">‹ Back</div><div class="gp-head">'+head+'</div>'+box+lines+take+cond+
-    '<div class="sec">THE MATCHUP</div><div class="two">'+teamCardHTML(a,'AWAY')+teamCardHTML(h,'HOME')+'</div>'+projTable(a,h);
+    '<div class="sec">THE MATCHUP</div><div class="two">'+teamCardHTML(a,'AWAY')+teamCardHTML(h,'HOME')+'</div>'+projTable(a,h,week,!!r);
   goPage();
 }
 
