@@ -191,7 +191,10 @@ let pMode='week', pWeek=propWeeks[0];
 let plWeek=null;
 let propNav='home', propPick=null;
 
-function bkCell(o,h,a){return o?'<div class="bkcell"><div class="sp">'+lineStr(o.s,h,a)+'</div><div class="ou">o/u '+o.t.toFixed(1)+'</div></div>':'<div class="bkcell"><div class="sp" style="color:var(--muted)">—</div><div class="ou">—</div></div>';}
+function bkCell(o,h,a){if(!o||(o.s==null&&o.t==null))return '<div class="bkcell"><div class="sp" style="color:var(--muted)">—</div><div class="ou">—</div></div>';
+  const sp=o.s!=null?lineStr(o.s,h,a):'<span style="color:var(--muted)">—</span>';
+  const ou=o.t!=null?'o/u '+o.t.toFixed(1):'o/u —';
+  return '<div class="bkcell"><div class="sp">'+sp+'</div><div class="ou">'+ou+'</div></div>';}
 function vegasObj(g){return g.spread!=null?{s:g.spread,t:g.total}:null;}
 function matchups(){
   let h='<div class="selbar"><button class="arw" id="mprev">‹</button><div class="selwrap"><select class="sel" id="msel">'+matchWeeks.map(w=>'<option value="'+w+'" '+(w===mWeek?'selected':'')+'>Week '+w+'</option>').join('')+'</select></div><button class="arw" id="mnext">›</button></div>';
@@ -393,7 +396,11 @@ function showGame(a,h,week){
   const qa=(g&&g.qbadj)||{};const p=project(a,h,qa.home||0,qa.away||0);
   const vegas=r?{s:r.cs,t:r.ct}:(g&&g.spread!=null?{s:g.spread,t:g.total}:null);
   const dk=(r&&r.dk_s!=null)?{s:r.dk_s,t:r.dk_t}:(g?g.dk:null),fd=(r&&r.fd_s!=null)?{s:r.fd_s,t:r.fd_t}:(g?g.fd:null);
-  const lc=(lbl,cls,o)=>'<div class="lc '+cls+'">'+(o?'<div class="l">'+lbl+'</div><div class="sp">'+lineStr(o.s,h,a)+'</div><div class="ou">o/u '+o.t.toFixed(1)+'</div>':'<div class="l">'+lbl+'</div><div class="sp" style="color:var(--muted);font-size:15px">—</div><div class="ou">not logged</div>')+'</div>';
+  const lc=(lbl,cls,o)=>{
+    if(!o||(o.s==null&&o.t==null))return '<div class="lc '+cls+'"><div class="l">'+lbl+'</div><div class="sp" style="color:var(--muted);font-size:15px">—</div><div class="ou">not logged</div></div>';
+    const sp=o.s!=null?lineStr(o.s,h,a):'—';
+    const ou=o.t!=null?'o/u '+o.t.toFixed(1):'o/u —';
+    return '<div class="lc '+cls+'"><div class="l">'+lbl+'</div><div class="sp">'+sp+'</div><div class="ou">'+ou+'</div></div>';};
   let head='<div class="gp-mu"><span class="lnk" onclick="teamDetail(\''+a+'\')">'+T[a].city+' '+T[a].name+'</span> <span style="color:var(--muted);font-weight:600">at</span> <span class="lnk" onclick="teamDetail(\''+h+'\')">'+T[h].city+' '+T[h].name+'</span></div>';
   head+='<div class="gp-kick">'+(g?fmtKick(g.date,g.time):('Week '+week))+'</div>';
   let box='';
