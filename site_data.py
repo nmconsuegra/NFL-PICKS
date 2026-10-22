@@ -171,7 +171,11 @@ try:
         DKFD_HIST[k]=rec
     _json.dump(DKFD_HIST,open('dkfd_history.json','w'))
 except Exception as e:
-    print('SharpAPI hook skipped (manual entry still works):', e)
+    import traceback
+    print('SharpAPI hook skipped (manual entry still works):', repr(e))
+    print('  --- SharpAPI block traceback (for debugging) ---')
+    traceback.print_exc()
+    print('  --- end traceback ---')
 unplayed=sch[(sch['game_type']=='REG')&(sch['result'].isna())].sort_values(['week','gameday'])
 for t in team_data:
     tg=unplayed[(unplayed['home_team']==t)|(unplayed['away_team']==t)]
