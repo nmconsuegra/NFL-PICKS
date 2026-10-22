@@ -156,13 +156,18 @@ try:
             if 'dk' in bm: g['dk']=bm['dk']
             if 'fd' in bm: g['fd']=bm['fd']
     if _odds: print(f'SharpAPI: odds attached for {len(_odds)} games')
-    # snapshot DK/FD lines so completed games can be graded going forward
+    # snapshot DK/FD lines so completed games can be graded going forward.
+    # Save whichever of spread/total is present (lines can load partially); never let a
+    # missing value overwrite a good one already saved from an earlier run.
     for g in gl:
         if not g.get('dk') and not g.get('fd'): continue
         k=f"{CURSEASON}-{g['week']}-{g['away']}-{g['home']}"
         rec=DKFD_HIST.get(k,{})
-        if g.get('dk'): rec['dk_s']=g['dk']['s']; rec['dk_t']=g['dk']['t']
-        if g.get('fd'): rec['fd_s']=g['fd']['s']; rec['fd_t']=g['fd']['t']
+        for bk,pre in (('dk','dk'),('fd','fd')):
+            line=g.get(bk)
+            if not line: continue
+            if line.get('s') is not None: rec[pre+'_s']=line['s']
+            if line.get('t') is not None: rec[pre+'_t']=line['t']
         DKFD_HIST[k]=rec
     _json.dump(DKFD_HIST,open('dkfd_history.json','w'))
 except Exception as e:
