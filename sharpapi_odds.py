@@ -39,7 +39,7 @@ def fetch_odds(api_key):
             '&sportsbook=draftkings,fanduel&market=spread,total&limit=200')
     games = {}; scanned = 0; url = base
     try:
-        for page in range(20):                       # hard cap so it can't loop forever
+        for page in range(120):                      # high cap: walk the whole feed until has_more=False
             req = urllib.request.Request(url, headers={'X-API-Key': api_key, 'Accept': 'application/json'})
             try:
                 with urllib.request.urlopen(req, timeout=25) as r:
@@ -75,15 +75,19 @@ def fetch_odds(api_key):
             cur = pg.get('next_cursor')
             if pg.get('has_more') and cur:
                 url = base + '&cursor=' + urllib.parse.quote(str(cur))
-                time.sleep(5)                        # stay under 12 requests/min
+                time.sleep(2)                        # ~2s/page: well under 12 requests/min, faster full scan
             else:
                 break
+        # keep any book that returned a spread OR a total (don't discard a half-loaded line)
         clean = {}
         for k, books in games.items():
-            bb = {b: v for b, v in books.items() if 's' in v and 't' in v}
+            bb = {b: v for b, v in books.items() if ('s' in v or 't' in v)}
             if bb: clean[k] = bb
+        _full = lambda v: 's' in v and 't' in v
         print(f'SharpAPI: scanned {scanned} rows, matched {len(clean)} games '
-              f'(DK: {sum(1 for v in clean.values() if "dk" in v)}, FD: {sum(1 for v in clean.values() if "fd" in v)})')
+              f'(DK: {sum(1 for v in clean.values() if "dk" in v)}, FD: {sum(1 for v in clean.values() if "fd" in v)}; '
+              f'full lines — DK: {sum(1 for v in clean.values() if "dk" in v and _full(v["dk"]))}, '
+              f'FD: {sum(1 for v in clean.values() if "fd" in v and _full(v["fd"]))})')
         return clean
     except Exception as e:
         print('SharpAPI fetch skipped:', e)
